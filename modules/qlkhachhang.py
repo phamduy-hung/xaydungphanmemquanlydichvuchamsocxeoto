@@ -12,14 +12,9 @@ if str(PROJECT_ROOT) not in sys.path:
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-try:
-    # Chạy theo package: python -m modules.qlkhachhang
-    from modules.ui.compiled.ui_qlkhachhang import Ui_Form as Ui_Form_QLKhachHang
-    from modules.ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
-except ModuleNotFoundError:
-    # Chạy trực tiếp file: python modules/qlkhachhang.py
-    from ui.compiled.ui_qlkhachhang import Ui_Form as Ui_Form_QLKhachHang
-    from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
+# Import đúng theo cấu trúc hiện tại của project
+from ui.compiled.ui_qlkhachhang import Ui_Form as Ui_Form_QLKhachHang
+from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
 
 
 class AddCustomerDialog(QDialog):

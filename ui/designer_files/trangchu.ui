@@ -1,0 +1,628 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1280</width>
+    <height>886</height>
+   </rect>
+  </property>
+  <property name="font">
+   <font>
+    <family>Segoe UI</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
+  <property name="windowTitle">
+   <string>Trang chủ quản lý</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget {
+    font-family: &quot;Segoe UI&quot;;
+    font-size: 10pt;
+    color: #0f172a;
+}
+QMainWindow, #centralwidget {
+    background-color: #f3f6fb;
+}
+/* ===== Header ===== */
+#headerFrame {
+    background-color: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 14px;
+}
+#logoLabel {
+    background-color: #FFFFFF;
+    color: #FFFFFF;
+    border-radius: 28px;
+    border: 1px solid #FFFFFF;
+    font-size: 24px;
+    font-weight: 700;
+}
+#appName {
+    color: #0b1324;
+    font-size: 21px;
+    font-weight: 800;
+}
+#appDesc {
+    color: #5b6b84;
+    font-size: 10.5pt;
+}
+#btnLogin, #btnLogout {
+    min-width: 120px;
+    min-height: 38px;
+    border: none;
+    border-radius: 9px;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 6px 14px;
+}
+#btnLogin {
+    background-color: #2563eb;
+}
+#btnLogin:hover {
+    background-color: #1d4ed8;
+}
+#btnLogin:pressed {
+    background-color: #1e40af;
+}
+#btnLogout {
+    background-color: #ef4444;
+}
+#btnLogout:hover {
+    background-color: #dc2626;
+}
+#btnLogout:pressed {
+    background-color: #b91c1c;
+}
+/* ===== Cards Wrapper ===== */
+#contentWrapper {
+    background-color: transparent;
+    border: none;
+}
+/* ===== Function Cards ===== */
+#card_lichhen,
+#card_pos,
+#card_crm,
+#card_kho,
+#card_nhansu,
+#card_care,
+#card_baocao,
+#card_hethong {
+    background-color: #ffffff;
+    border: 1px solid #dbe5f2;
+    border-radius: 14px;
+}
+#card_lichhen:hover,
+#card_pos:hover,
+#card_crm:hover,
+#card_kho:hover,
+#card_nhansu:hover,
+#card_care:hover,
+#card_baocao:hover,
+#card_hethong:hover {
+    border: 1px solid #93c5fd;
+    background-color: #fdfefe;
+}
+/* Tieu de card */
+#lblTitleLichHen,
+#lblTitlePOS,
+#lblTitleCRM,
+#lblTitleKho,
+#lblTitleNhanSu,
+#lblTitleCare,
+#lblTitleBaoCao,
+#lblTitleHeThong {
+    color: #0f172a;
+    font-size: 13pt;
+    font-weight: 800;
+}
+/* Mo ta card */
+#lblDescLichHen,
+#lblDescPOS,
+#lblDescCRM,
+#lblDescKho,
+#lblDescNhanSu,
+#lblDescCare,
+#lblDescBaoCao,
+#lblDescHeThong {
+    color: #596980;
+    font-size: 10pt;
+    line-height: 1.25em;
+}
+/* Nut mo chuc nang tren card */
+#btn_lichhen_tiepnhan,
+#btn_banhang_thanhtoan,
+#btn_crm_khachhang,
+#btn_kho_vattu,
+#btn_nhansu_nangsuat,
+#btn_customer_care,
+#btn_baocao_thongke,
+#btn_hethong_caidat {
+    min-height: 36px;
+    border: none;
+    border-radius: 9px;
+    background-color: #0ea5e9;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 6px 12px;
+}
+#btn_lichhen_tiepnhan:hover,
+#btn_banhang_thanhtoan:hover,
+#btn_crm_khachhang:hover,
+#btn_kho_vattu:hover,
+#btn_nhansu_nangsuat:hover,
+#btn_customer_care:hover,
+#btn_baocao_thongke:hover,
+#btn_hethong_caidat:hover {
+    background-color: #0284c7;
+}
+#btn_lichhen_tiepnhan:pressed,
+#btn_banhang_thanhtoan:pressed,
+#btn_crm_khachhang:pressed,
+#btn_kho_vattu:pressed,
+#btn_nhansu_nangsuat:pressed,
+#btn_customer_care:pressed,
+#btn_baocao_thongke:pressed,
+#btn_hethong_caidat:pressed {
+    background-color: #0369a1;
+}
+/* ===== Footer ===== */
+#footerText {
+    color: #6b7b93;
+    font-size: 9.5pt;
+    padding-left: 4px;
+}</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_root">
+    <property name="spacing">
+     <number>16</number>
+    </property>
+    <property name="leftMargin">
+     <number>24</number>
+    </property>
+    <property name="topMargin">
+     <number>20</number>
+    </property>
+    <property name="rightMargin">
+     <number>24</number>
+    </property>
+    <property name="bottomMargin">
+     <number>20</number>
+    </property>
+    <item>
+     <widget class="QFrame" name="headerFrame">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_header">
+       <property name="spacing">
+        <number>14</number>
+       </property>
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+       <property name="topMargin">
+        <number>14</number>
+       </property>
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+       <property name="bottomMargin">
+        <number>14</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="logoLabel">
+         <property name="minimumSize">
+          <size>
+           <width>56</width>
+           <height>56</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>56</width>
+           <height>56</height>
+          </size>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_title">
+         <item>
+          <widget class="QLabel" name="appName">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="pixmap">
+            <pixmap resource="../../assets/images/img.qrc">:/logo-removebg-preview.png</pixmap>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="appDesc">
+           <property name="font">
+            <font>
+             <family>Segoe UI</family>
+             <pointsize>11</pointsize>
+            </font>
+           </property>
+           <property name="text">
+            <string>Hệ thống quản lý dịch vụ chăm sóc xe ô tô</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <spacer name="horizontalSpacer_header">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnLogout">
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #6c757d; /* Màu xám trung tính */
+    color: white;
+    border-radius: 5px;
+    padding: 8px 15px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #5a6268; /* Xám đậm hơn khi lia chuột */
+}</string>
+         </property>
+         <property name="text">
+          <string>Đăng xuất</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QFrame" name="contentWrapper">
+      <layout class="QGridLayout" name="gridLayout_cards">
+       <property name="leftMargin">
+        <number>12</number>
+       </property>
+       <property name="topMargin">
+        <number>12</number>
+       </property>
+       <property name="rightMargin">
+        <number>12</number>
+       </property>
+       <property name="bottomMargin">
+        <number>12</number>
+       </property>
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QFrame" name="card_lichhen">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_lichhen">
+          <item>
+           <widget class="QLabel" name="lblTitleLichHen">
+            <property name="text">
+             <string>Quản lý lịch hẹn &amp; Tiếp nhận</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescLichHen">
+            <property name="text">
+             <string>Đặt lịch, check-in, điều phối xe vào dịch vụ</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_lichhen_tiepnhan">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QFrame" name="card_pos">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_pos">
+          <item>
+           <widget class="QLabel" name="lblTitlePOS">
+            <property name="text">
+             <string>Bán hàng &amp; Thanh toán POS</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescPOS">
+            <property name="text">
+             <string>Lập hóa đơn, áp dụng khuyến mãi, in hóa đơn nhanh.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_banhang_thanhtoan">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QFrame" name="card_crm">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_crm">
+          <item>
+           <widget class="QLabel" name="lblTitleCRM">
+            <property name="text">
+             <string>Quản lý khách hàng (CRM)</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescCRM">
+            <property name="text">
+             <string>Lưu hồ sơ, lịch sử dịch vụ, chăm sóc theo nhóm khách.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_crm_khachhang">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QFrame" name="card_kho">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_kho">
+          <item>
+           <widget class="QLabel" name="lblTitleKho">
+            <property name="text">
+             <string>Quản lý kho &amp; vật tư</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescKho">
+            <property name="text">
+             <string>Nhập / xuất tồn kho, cảnh báo tồn kho thấp, theo dõi danh mục.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_kho_vattu">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QFrame" name="card_nhansu">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_nhansu">
+          <item>
+           <widget class="QLabel" name="lblTitleNhanSu">
+            <property name="text">
+             <string>Quản lý nhân sự &amp; năng suất</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescNhanSu">
+            <property name="text">
+             <string>Chấm công, chia ca, đo năng suất theo kỹ thuật viên.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_nhansu_nangsuat">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QFrame" name="card_care">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_care">
+          <item>
+           <widget class="QLabel" name="lblTitleCare">
+            <property name="text">
+             <string>Chăm sóc KH &amp; Marketing (Customer Care)</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescCare">
+            <property name="text">
+             <string>Gửi SMS/Zalo, nhắc bảo dưỡng, chương trình ưu đãi.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_customer_care">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QFrame" name="card_baocao">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_baocao">
+          <item>
+           <widget class="QLabel" name="lblTitleBaoCao">
+            <property name="text">
+             <string>Báo cáo &amp; thống kê</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescBaoCao">
+            <property name="text">
+             <string>Doanh thu, lợi nhuận, tần suất quay lại, KPI</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_baocao_thongke">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QFrame" name="card_hethong">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_card_hethong">
+          <item>
+           <widget class="QLabel" name="lblTitleHeThong">
+            <property name="text">
+             <string>Quản lý hệ thống &amp; cài đặt</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblDescHeThong">
+            <property name="text">
+             <string>Phân quyền, sao lưu và khôi phục dữ liệu.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_hethong_caidat">
+            <property name="text">
+             <string>Mở chức năng</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="footerText">
+      <property name="text">
+       <string>Trang chủ quản lý | Quản lý tổng thể trung tâm chăm sóc xe</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources>
+  <include location="../../assets/images/img.qrc"/>
+ </resources>
+ <connections/>
+</ui>

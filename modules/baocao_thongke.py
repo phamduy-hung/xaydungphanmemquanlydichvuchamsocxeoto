@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 import pandas as pd
 from PyQt5 import QtWidgets, uic, QtCore
 
@@ -15,18 +16,22 @@ data_source = [
 class BaoCaoWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        
+
         # --- CƠ CHẾ TỰ TÌM FILE .UI ---
-        # Lấy đường dẫn đến thư mục chứa file .py đang mở này
-        thu_muc_hien_tai = os.path.dirname(os.path.abspath(__file__))
-        # Nối tên file .ui vào đường dẫn đó
-        duong_dan_ui = os.path.join(thu_muc_hien_tai, 'baocao_thongke.ui')
-        
+        thu_muc_hien_tai = Path(__file__).resolve().parent
+        duong_dan_ui_modules = thu_muc_hien_tai / "baocao_thongke.ui"
+        duong_dan_ui_designer = thu_muc_hien_tai.parent / "ui" / "designer_files" / "baocao_thongke.ui"
+        duong_dan_ui = duong_dan_ui_modules if duong_dan_ui_modules.exists() else duong_dan_ui_designer
+
         # Nạp giao diện
         try:
-            uic.loadUi(duong_dan_ui, self)
+            uic.loadUi(str(duong_dan_ui), self)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Lỗi nạp UI", f"Không tìm thấy file UI tại:\n{duong_dan_ui}")
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Lỗi nạp UI",
+                f"Không tìm thấy file UI tại:\n{duong_dan_ui}\n\nChi tiết: {e}",
+            )
             return
 
         # 2. Xử lý dữ liệu với Pandas
