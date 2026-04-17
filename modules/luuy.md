@@ -1,1 +1,0 @@
-Tầng Xử lý Logic (Controllers) - Nơi kết nối UI và Database
