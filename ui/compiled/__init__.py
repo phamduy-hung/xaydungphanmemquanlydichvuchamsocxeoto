@@ -1,1 +1,0 @@
-# Nơi chứa các file .py được biên dịch tự động từ file .ui

@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>icons/suaKH.png</file>
+    <file>icons/themKH.png</file>
+    <file>icons/xoaKH.png</file>
+    <file>icons/huy.png</file>
+    <file>icons/luu.png</file>
+  </qresource>
+</RCC>
