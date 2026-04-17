@@ -1,0 +1,1 @@
+# Dữ liệu mẫu để test khi mới tạo database

@@ -1,0 +1,1 @@
+# File gốc chạy toàn bộ ứng dụng (Entry point)

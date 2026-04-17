@@ -1,0 +1,1 @@
+# Chứa các biến môi trường, cấu hình chung (DB path, API keys...)

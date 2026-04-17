@@ -1,0 +1,1 @@
+# Định nghĩa các bảng (Khách hàng, Hóa đơn, Nhân viên...)

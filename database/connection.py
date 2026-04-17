@@ -1,0 +1,1 @@
+# Hàm kết nối CSDL (SQLite/MySQL/PostgreSQL)
