@@ -1,0 +1,1 @@
+# Hàm kiểm tra tính hợp lệ (VD: check SĐT đúng định dạng chưa)
