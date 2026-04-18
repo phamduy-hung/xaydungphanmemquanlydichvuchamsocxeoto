@@ -1,7 +1,8 @@
+import inspect
 import sys
 from pathlib import Path
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -192,8 +193,17 @@ class MainWindow(QMainWindow):
 
         if BaoCaoWindow is None:
             try:
-                from modules.baocao_thongke import BaoCaoWindow as _BaoCaoWindow
-                BaoCaoWindow = _BaoCaoWindow
+                from modules import baocao_thongke as baocao_module
+                candidate_names = (
+                    "BaoCaoWindow",
+                    "BaoCaoThongKeWindow",
+                    "ReportWindow",
+                )
+                for name in candidate_names:
+                    candidate = getattr(baocao_module, name, None)
+                    if inspect.isclass(candidate) and issubclass(candidate, QWidget):
+                        BaoCaoWindow = candidate
+                        break
             except ModuleNotFoundError as exc:
                 QMessageBox.critical(
                     self,
@@ -211,10 +221,11 @@ class MainWindow(QMainWindow):
                 return
 
         if BaoCaoWindow is None:
-            QMessageBox.critical(
+            QMessageBox.information(
                 self,
-                "Loi module",
-                "Khong the tai module Bao cao & Thong ke.\nKiem tra lai file modules/baocao_thongke.py.",
+                "Thong bao",
+                "Module Bao cao & Thong ke da duoc nap, nhung chua co class giao dien.\n"
+                "Vui long tao class QWidget (vi du: BaoCaoWindow) trong modules/baocao_thongke.py.",
             )
             return
 

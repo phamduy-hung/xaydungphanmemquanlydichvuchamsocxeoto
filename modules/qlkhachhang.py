@@ -14,26 +14,109 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # Import đúng theo cấu trúc hiện tại của project
 from ui.compiled.ui_qlkhachhang import Ui_Form as Ui_Form_QLKhachHang
+from ui.compiled.ui_suathongtinKH import Ui_Dialog as Ui_Dialog_SuaThongTinKH
 from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
+
+# Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
+CLASS_NEW = "Khách mới"
+CLASS_RETURN = "Khách quay lại"
+CLASS_VIP = "Khách VIP"
+VIP_THRESHOLD = 50_000_000  # Trên 50 triệu → tự xếp VIP
+
+
+def _apply_vip_rule(customer):
+    """Tổng chi tiêu > 50 triệu: bắt buộc phân loại VIP."""
+    if int(customer.get("tong_chi_tieu", 0)) > VIP_THRESHOLD:
+        customer["phan_loai"] = CLASS_VIP
 
 
 class AddCustomerDialog(QDialog):
-    def __init__(self, parent=None, customer_data=None):
+    """Thêm KH: không chọn phân loại; luôn là Khách mới (theo yêu cầu)."""
+
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.ui = Ui_Dialog_ThemKhachHang()
         self.ui.setupUi(self)
+        self.saved_customer_data = None
+        self.setWindowTitle("Thêm khách hàng mới")
+        self._setup_signals()
 
+    def _setup_signals(self):
+        self.ui.btn_save.clicked.connect(self._save_data)
+        self.ui.btn_cancel.clicked.connect(self.reject)
+
+    def _save_data(self):
+        ten = self.ui.txt_name.text().strip()
+        sdt = self.ui.txt_phone.text().strip()
+        hang_xe = self.ui.txt_hangxe.text().strip()
+        bien_so = self.ui.txt_plate.text().strip()
+        ghi_chu = self.ui.txt_note.toPlainText().strip()
+
+        if not ten or not sdt:
+            QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Tên khách hàng và Số điện thoại.")
+            return
+
+        self.saved_customer_data = {
+            "ten": ten,
+            "sdt": sdt,
+            "hang_xe": hang_xe,
+            "bien_so": bien_so,
+            "phan_loai": CLASS_NEW,
+            "tong_chi_tieu": 0,
+            "ghi_chu": ghi_chu,
+        }
+        self.accept()
+
+
+class EditCustomerDialog(QDialog):
+    """Sửa KH: có phân loại; dưới ngưỡng chỉ đổi Khách mới ↔ Khách quay lại; trên ngưỡng khóa VIP."""
+
+    def __init__(self, parent=None, customer_data=None):
+        super().__init__(parent)
+        self.ui = Ui_Dialog_SuaThongTinKH()
+        self.ui.setupUi(self)
         self.customer_data = customer_data or {}
         self.saved_customer_data = None
-        self.is_edit_mode = bool(customer_data)
-
-        if self.is_edit_mode:
-            self.setWindowTitle("Sửa thông tin khách hàng")
-            self._fill_old_data()
-        else:
-            self.setWindowTitle("Thêm khách hàng mới")
-
+        self.setWindowTitle("Sửa thông tin khách hàng")
+        self._setup_classification_combo()
+        self._fill_old_data()
         self._setup_signals()
+
+    def _setup_classification_combo(self):
+        """Đồng bộ nhãn với màn hình chính; ẩn VIP khi chưa đủ ngưỡng (cho phép chỉ 2 lựa chọn)."""
+        spending = int(self.customer_data.get("tong_chi_tieu", 0))
+        cb = self.ui.comboBox
+        cb.blockSignals(True)
+        cb.clear()
+        if spending > VIP_THRESHOLD:
+            cb.addItem(CLASS_VIP)
+            cb.setCurrentIndex(0)
+            cb.setEnabled(False)
+        else:
+            cb.addItem(CLASS_NEW)
+            cb.addItem(CLASS_RETURN)
+            cb.setEnabled(True)
+        cb.blockSignals(False)
+
+    def _set_combo_from_phan_loai(self):
+        spending = int(self.customer_data.get("tong_chi_tieu", 0))
+        raw = self.customer_data.get("phan_loai", CLASS_NEW)
+        cb = self.ui.comboBox
+
+        if spending > VIP_THRESHOLD:
+            return
+
+        if raw == CLASS_VIP:
+            idx = cb.findText(CLASS_RETURN, Qt.MatchFixedString)
+            cb.setCurrentIndex(idx if idx >= 0 else 0)
+            return
+
+        idx = cb.findText(raw, Qt.MatchFixedString)
+        if idx >= 0:
+            cb.setCurrentIndex(idx)
+        else:
+            idx = cb.findText(CLASS_NEW, Qt.MatchFixedString)
+            cb.setCurrentIndex(idx if idx >= 0 else 0)
 
     def _setup_signals(self):
         self.ui.btn_save.clicked.connect(self._save_data)
@@ -42,31 +125,36 @@ class AddCustomerDialog(QDialog):
     def _fill_old_data(self):
         self.ui.txt_name.setText(self.customer_data.get("ten", ""))
         self.ui.txt_phone.setText(self.customer_data.get("sdt", ""))
+        self.ui.txt_hangxe.setText(self.customer_data.get("hang_xe", ""))
         self.ui.txt_plate.setText(self.customer_data.get("bien_so", ""))
         self.ui.txt_note.setPlainText(self.customer_data.get("ghi_chu", ""))
-
-        current_classification = self.customer_data.get("phan_loai", "Khách mới")
-        index = self.ui.comboBox.findText(current_classification, Qt.MatchFixedString)
-        self.ui.comboBox.setCurrentIndex(index if index >= 0 else 0)
+        self._set_combo_from_phan_loai()
 
     def _save_data(self):
         ten = self.ui.txt_name.text().strip()
         sdt = self.ui.txt_phone.text().strip()
+        hang_xe = self.ui.txt_hangxe.text().strip()
         bien_so = self.ui.txt_plate.text().strip()
         ghi_chu = self.ui.txt_note.toPlainText().strip()
-        phan_loai = self.ui.comboBox.currentText()
+        spending = int(self.customer_data.get("tong_chi_tieu", 0))
 
         if not ten or not sdt:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Tên khách hàng và Số điện thoại.")
             return
 
+        if spending > VIP_THRESHOLD:
+            phan_loai = CLASS_VIP
+        else:
+            phan_loai = self.ui.comboBox.currentText()
+
         self.saved_customer_data = {
             "id": self.customer_data.get("id"),
             "ten": ten,
             "sdt": sdt,
+            "hang_xe": hang_xe,
             "bien_so": bien_so,
             "phan_loai": phan_loai,
-            "tong_chi_tieu": self.customer_data.get("tong_chi_tieu", 0),
+            "tong_chi_tieu": spending,
             "ghi_chu": ghi_chu,
         }
         self.accept()
@@ -113,9 +201,10 @@ class CustomerManagerWidget(QWidget):
             {
                 "ten": "Nguyen Van A",
                 "sdt": "0901122334",
+                "hang_xe": "Toyota",
                 "bien_so": "51A-12345",
-                "phan_loai": "Khách mới",
-                "tong_chi_tieu": 350000,
+                "phan_loai": CLASS_NEW,
+                "tong_chi_tieu": 35_000_000,
                 "ghi_chu": "Khách hàng mới, cần tư vấn thêm gói vệ sinh nội thất.",
             }
         )
@@ -123,16 +212,18 @@ class CustomerManagerWidget(QWidget):
             {
                 "ten": "Tran Thi B",
                 "sdt": "0988777666",
+                "hang_xe": "Mercedes",
                 "bien_so": "59G2-88991",
-                "phan_loai": "Khách VIP",
-                "tong_chi_tieu": 2750000,
-                "ghi_chu": "Khách thường xuyên, ưu tiên xếp lịch cuối tuần.",
+                "phan_loai": CLASS_RETURN,
+                "tong_chi_tieu": 52_000_000,
+                "ghi_chu": "Tổng chi tiêu trên 50 triệu — hệ thống xếp VIP.",
             }
         )
         self.service_history_map = {
             1: [
                 {
                     "ngay": "2026-04-10",
+                    "hang_xe": "Toyota",
                     "bien_so": "51A-12345",
                     "dich_vu": "Rửa xe + hút bụi",
                     "tong_tien": 150000,
@@ -140,6 +231,7 @@ class CustomerManagerWidget(QWidget):
                 },
                 {
                     "ngay": "2026-04-15",
+                    "hang_xe": "Toyota",
                     "bien_so": "51A-12345",
                     "dich_vu": "Phủ ceramic nhanh",
                     "tong_tien": 200000,
@@ -149,6 +241,7 @@ class CustomerManagerWidget(QWidget):
             2: [
                 {
                     "ngay": "2026-03-28",
+                    "hang_xe": "Mercedes",
                     "bien_so": "59G2-88991",
                     "dich_vu": "Bảo dưỡng tổng quát",
                     "tong_tien": 1250000,
@@ -156,6 +249,7 @@ class CustomerManagerWidget(QWidget):
                 },
                 {
                     "ngay": "2026-04-12",
+                    "hang_xe": "Mercedes",
                     "bien_so": "59G2-88991",
                     "dich_vu": "Vệ sinh khoang máy",
                     "tong_tien": 1500000,
@@ -169,11 +263,13 @@ class CustomerManagerWidget(QWidget):
             "id": self.next_customer_id,
             "ten": data.get("ten", ""),
             "sdt": data.get("sdt", ""),
+            "hang_xe": data.get("hang_xe", ""),
             "bien_so": data.get("bien_so", ""),
-            "phan_loai": data.get("phan_loai", "Khách mới"),
+            "phan_loai": data.get("phan_loai", CLASS_NEW),
             "tong_chi_tieu": int(data.get("tong_chi_tieu", 0)),
             "ghi_chu": data.get("ghi_chu", ""),
         }
+        _apply_vip_rule(customer)
         self.customers.append(customer)
         self.next_customer_id += 1
         return customer
@@ -193,14 +289,18 @@ class CustomerManagerWidget(QWidget):
             if keyword:
                 customer_id_text = str(customer["id"]).lower()
                 customer_name_text = customer["ten"].lower()
-                if keyword not in customer_id_text and keyword not in customer_name_text:
+                hang_xe_text = customer.get("hang_xe", "").lower()
+                if (
+                    keyword not in customer_id_text
+                    and keyword not in customer_name_text
+                    and keyword not in hang_xe_text
+                ):
                     continue
 
             result.append(customer)
         return result
 
     def search_customers(self):
-        # Tìm theo đúng yêu cầu: Mã khách hàng hoặc Tên khách hàng
         self.search_keyword = self.ui.txt_search.text().strip()
         self.refresh_customer_table()
 
@@ -214,9 +314,10 @@ class CustomerManagerWidget(QWidget):
             table.setItem(row, 0, QTableWidgetItem(str(customer["id"])))
             table.setItem(row, 1, QTableWidgetItem(customer["ten"]))
             table.setItem(row, 2, QTableWidgetItem(customer["sdt"]))
-            table.setItem(row, 3, QTableWidgetItem(customer["bien_so"]))
-            table.setItem(row, 4, QTableWidgetItem(customer["phan_loai"]))
-            table.setItem(row, 5, QTableWidgetItem(self._format_currency(customer["tong_chi_tieu"])))
+            table.setItem(row, 3, QTableWidgetItem(customer.get("hang_xe", "")))
+            table.setItem(row, 4, QTableWidgetItem(customer["bien_so"]))
+            table.setItem(row, 5, QTableWidgetItem(customer["phan_loai"]))
+            table.setItem(row, 6, QTableWidgetItem(self._format_currency(customer["tong_chi_tieu"])))
 
         if filtered:
             table.selectRow(0)
@@ -261,11 +362,13 @@ class CustomerManagerWidget(QWidget):
             QMessageBox.warning(self, "Không tìm thấy", "Không tìm thấy dữ liệu khách hàng đã chọn.")
             return
 
-        dialog = AddCustomerDialog(self, customer_data=self.customers[customer_index])
+        dialog = EditCustomerDialog(self, customer_data=dict(self.customers[customer_index]))
         if dialog.exec_() and dialog.saved_customer_data:
             dialog.saved_customer_data["id"] = customer_id
             dialog.saved_customer_data["tong_chi_tieu"] = self.customers[customer_index]["tong_chi_tieu"]
-            self.customers[customer_index] = dialog.saved_customer_data
+            updated = dialog.saved_customer_data
+            _apply_vip_rule(updated)
+            self.customers[customer_index] = updated
             self.refresh_customer_table()
             self._select_customer_by_id(customer_id)
 
@@ -326,10 +429,11 @@ class CustomerManagerWidget(QWidget):
         for row, history in enumerate(histories):
             table.insertRow(row)
             table.setItem(row, 0, QTableWidgetItem(history["ngay"]))
-            table.setItem(row, 1, QTableWidgetItem(history["bien_so"]))
-            table.setItem(row, 2, QTableWidgetItem(history["dich_vu"]))
-            table.setItem(row, 3, QTableWidgetItem(self._format_currency(history["tong_tien"])))
-            table.setItem(row, 4, QTableWidgetItem(history["ktv"]))
+            table.setItem(row, 1, QTableWidgetItem(history.get("hang_xe", "")))
+            table.setItem(row, 2, QTableWidgetItem(history["bien_so"]))
+            table.setItem(row, 3, QTableWidgetItem(history["dich_vu"]))
+            table.setItem(row, 4, QTableWidgetItem(self._format_currency(history["tong_tien"])))
+            table.setItem(row, 5, QTableWidgetItem(history["ktv"]))
 
 
 if __name__ == "__main__":

@@ -338,6 +338,11 @@ QHeaderView::section:last {
          </column>
          <column>
           <property name="text">
+           <string>Hãng xe</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
            <string>Biển số xe</string>
           </property>
          </column>
@@ -410,6 +415,11 @@ QHeaderView::section:last {
             <column>
              <property name="text">
               <string>Ngày dịch vụ</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Hãng xe</string>
              </property>
             </column>
             <column>

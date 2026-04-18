@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>481</height>
+    <height>480</height>
    </rect>
   </property>
   <property name="font">
@@ -17,7 +17,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>Thêm khách hàng mới</string>
+   <string>Sửa thông tin khách hàng</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -26,6 +26,13 @@
       <widget class="QLabel" name="label">
        <property name="text">
         <string>Tên khách hàng:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>Số điện thoại:</string>
        </property>
       </widget>
      </item>
@@ -45,13 +52,6 @@ QLineEdit:focus, QTextEdit:focus {
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Số điện thoại:</string>
-       </property>
-      </widget>
-     </item>
      <item row="3" column="1">
       <widget class="QLineEdit" name="txt_phone">
        <property name="styleSheet">
@@ -68,33 +68,15 @@ QLineEdit:focus, QTextEdit:focus {
        </property>
       </widget>
      </item>
-     <item row="4" column="1">
-      <widget class="QLabel" name="label_6">
-       <property name="text">
-        <string>Hãng xe:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QLineEdit" name="txt_hangxe">
-       <property name="styleSheet">
-        <string notr="true">QLineEdit, QTextEdit {
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    padding: 6px;
-    background-color: #ffffff;
-    selection-background-color: #007bff;
-}
-QLineEdit:focus, QTextEdit:focus {
-    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
-}</string>
-       </property>
-      </widget>
-     </item>
      <item row="6" column="1">
       <widget class="QLabel" name="label_3">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+        </font>
+       </property>
        <property name="text">
-        <string>Biển số xe:</string>
+        <string>Biển số xe</string>
        </property>
       </widget>
      </item>
@@ -114,20 +96,114 @@ QLineEdit:focus, QTextEdit:focus {
        </property>
       </widget>
      </item>
-     <item row="8" column="1">
+     <item row="10" column="1">
       <widget class="QLabel" name="label_4">
-       <property name="text">
-        <string>Ghi chú: </string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
-      <widget class="QTextEdit" name="txt_note">
        <property name="font">
         <font>
          <family>Segoe UI</family>
         </font>
        </property>
+       <property name="text">
+        <string>Ghi chú: </string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="1">
+      <widget class="QTextEdit" name="txt_note">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QLineEdit, QTextEdit {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    background-color: #ffffff;
+    selection-background-color: #007bff;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
+}</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
+      <widget class="QLabel" name="label_5">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+        </font>
+       </property>
+       <property name="text">
+        <string>Phân loại</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <widget class="QComboBox" name="comboBox">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QComboBox {
+    border: 1px solid #ced4da; /* Viền xám nhạt */
+    border-radius: 5px;        /* Bo tròn 5px */
+    padding: 5px 10px;         /* Khoảng cách chữ bên trong */
+    background-color: white;   /* Nền trắng */
+    color: #333333;            /* Chữ màu xám đen */
+}
+
+/* Tùy chỉnh cái nút mũi tên xổ xuống */
+QComboBox::drop-down {
+    border: none;
+    width: 30px; /* Mở rộng chiều ngang một chút cho dễ bấm */
+}
+
+/* Chèn icon mũi tên màu đen */
+/* Chèn icon mũi tên màu đen */
+QComboBox::down-arrow {
+    image: url(&quot;C:/Users/LENOVO/OneDrive/Documents/xaydungphanmemquanlydichvuchamsocxeoto/assets/icons/muiten.png&quot;); 
+    width: 12px;  
+    height: 12px;
+}
+
+/* Hiệu ứng khi mũi tên xổ xuống (tùy chọn) */
+QComboBox::down-arrow:on {
+    top: 1px; /* Đẩy mũi tên xuống 1px khi click tạo cảm giác chân thực */
+}</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>Khách mới</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Khách quay lại thường  xuyên</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Khách VIP</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QLabel" name="label_6">
+       <property name="text">
+        <string>Hãng xe:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QLineEdit" name="txt_hangxe">
        <property name="styleSheet">
         <string notr="true">QLineEdit, QTextEdit {
     border: 1px solid #ced4da;

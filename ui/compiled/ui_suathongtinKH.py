@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui/designer_files/themkhachhang.ui'
+# Form implementation generated from reading ui file 'ui/designer_files/suathongtinKH.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(400, 481)
+        Dialog.resize(400, 480)
         font = QtGui.QFont()
         font.setFamily("Segoe UI")
         font.setPointSize(10)
@@ -26,6 +26,9 @@ class Ui_Dialog(object):
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setObjectName("label")
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.label)
+        self.label_2 = QtWidgets.QLabel(Dialog)
+        self.label_2.setObjectName("label_2")
+        self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.label_2)
         self.txt_name = QtWidgets.QLineEdit(Dialog)
         self.txt_name.setStyleSheet("QLineEdit, QTextEdit {\n"
 "    border: 1px solid #ced4da;\n"
@@ -39,9 +42,6 @@ class Ui_Dialog(object):
 "}")
         self.txt_name.setObjectName("txt_name")
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.txt_name)
-        self.label_2 = QtWidgets.QLabel(Dialog)
-        self.label_2.setObjectName("label_2")
-        self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.label_2)
         self.txt_phone = QtWidgets.QLineEdit(Dialog)
         self.txt_phone.setStyleSheet("QLineEdit, QTextEdit {\n"
 "    border: 1px solid #ced4da;\n"
@@ -55,23 +55,10 @@ class Ui_Dialog(object):
 "}")
         self.txt_phone.setObjectName("txt_phone")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.txt_phone)
-        self.label_6 = QtWidgets.QLabel(Dialog)
-        self.label_6.setObjectName("label_6")
-        self.formLayout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.label_6)
-        self.txt_hangxe = QtWidgets.QLineEdit(Dialog)
-        self.txt_hangxe.setStyleSheet("QLineEdit, QTextEdit {\n"
-"    border: 1px solid #ced4da;\n"
-"    border-radius: 4px;\n"
-"    padding: 6px;\n"
-"    background-color: #ffffff;\n"
-"    selection-background-color: #007bff;\n"
-"}\n"
-"QLineEdit:focus, QTextEdit:focus {\n"
-"    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */\n"
-"}")
-        self.txt_hangxe.setObjectName("txt_hangxe")
-        self.formLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.txt_hangxe)
         self.label_3 = QtWidgets.QLabel(Dialog)
+        font = QtGui.QFont()
+        font.setFamily("Segoe UI")
+        self.label_3.setFont(font)
         self.label_3.setObjectName("label_3")
         self.formLayout.setWidget(6, QtWidgets.QFormLayout.FieldRole, self.label_3)
         self.txt_plate = QtWidgets.QLineEdit(Dialog)
@@ -88,11 +75,15 @@ class Ui_Dialog(object):
         self.txt_plate.setObjectName("txt_plate")
         self.formLayout.setWidget(7, QtWidgets.QFormLayout.FieldRole, self.txt_plate)
         self.label_4 = QtWidgets.QLabel(Dialog)
+        font = QtGui.QFont()
+        font.setFamily("Segoe UI")
+        self.label_4.setFont(font)
         self.label_4.setObjectName("label_4")
-        self.formLayout.setWidget(8, QtWidgets.QFormLayout.FieldRole, self.label_4)
+        self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.label_4)
         self.txt_note = QtWidgets.QTextEdit(Dialog)
         font = QtGui.QFont()
         font.setFamily("Segoe UI")
+        font.setPointSize(10)
         self.txt_note.setFont(font)
         self.txt_note.setStyleSheet("QLineEdit, QTextEdit {\n"
 "    border: 1px solid #ced4da;\n"
@@ -105,7 +96,65 @@ class Ui_Dialog(object):
 "    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */\n"
 "}")
         self.txt_note.setObjectName("txt_note")
-        self.formLayout.setWidget(9, QtWidgets.QFormLayout.FieldRole, self.txt_note)
+        self.formLayout.setWidget(11, QtWidgets.QFormLayout.FieldRole, self.txt_note)
+        self.label_5 = QtWidgets.QLabel(Dialog)
+        font = QtGui.QFont()
+        font.setFamily("Segoe UI")
+        self.label_5.setFont(font)
+        self.label_5.setObjectName("label_5")
+        self.formLayout.setWidget(8, QtWidgets.QFormLayout.FieldRole, self.label_5)
+        self.comboBox = QtWidgets.QComboBox(Dialog)
+        font = QtGui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.comboBox.setFont(font)
+        self.comboBox.setStyleSheet("QComboBox {\n"
+"    border: 1px solid #ced4da; /* Viền xám nhạt */\n"
+"    border-radius: 5px;        /* Bo tròn 5px */\n"
+"    padding: 5px 10px;         /* Khoảng cách chữ bên trong */\n"
+"    background-color: white;   /* Nền trắng */\n"
+"    color: #333333;            /* Chữ màu xám đen */\n"
+"}\n"
+"\n"
+"/* Tùy chỉnh cái nút mũi tên xổ xuống */\n"
+"QComboBox::drop-down {\n"
+"    border: none;\n"
+"    width: 30px; /* Mở rộng chiều ngang một chút cho dễ bấm */\n"
+"}\n"
+"\n"
+"/* Chèn icon mũi tên màu đen */\n"
+"/* Chèn icon mũi tên màu đen */\n"
+"QComboBox::down-arrow {\n"
+"    image: url(\"C:/Users/LENOVO/OneDrive/Documents/xaydungphanmemquanlydichvuchamsocxeoto/assets/icons/muiten.png\"); \n"
+"    width: 12px;  \n"
+"    height: 12px;\n"
+"}\n"
+"\n"
+"/* Hiệu ứng khi mũi tên xổ xuống (tùy chọn) */\n"
+"QComboBox::down-arrow:on {\n"
+"    top: 1px; /* Đẩy mũi tên xuống 1px khi click tạo cảm giác chân thực */\n"
+"}")
+        self.comboBox.setObjectName("comboBox")
+        self.comboBox.addItem("")
+        self.comboBox.addItem("")
+        self.comboBox.addItem("")
+        self.formLayout.setWidget(9, QtWidgets.QFormLayout.FieldRole, self.comboBox)
+        self.label_6 = QtWidgets.QLabel(Dialog)
+        self.label_6.setObjectName("label_6")
+        self.formLayout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.label_6)
+        self.txt_hangxe = QtWidgets.QLineEdit(Dialog)
+        self.txt_hangxe.setStyleSheet("QLineEdit, QTextEdit {\n"
+"    border: 1px solid #ced4da;\n"
+"    border-radius: 4px;\n"
+"    padding: 6px;\n"
+"    background-color: #ffffff;\n"
+"    selection-background-color: #007bff;\n"
+"}\n"
+"QLineEdit:focus, QTextEdit:focus {\n"
+"    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */\n"
+"}")
+        self.txt_hangxe.setObjectName("txt_hangxe")
+        self.formLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.txt_hangxe)
         self.verticalLayout.addLayout(self.formLayout)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -152,12 +201,16 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Thêm khách hàng mới"))
+        Dialog.setWindowTitle(_translate("Dialog", "Sửa thông tin khách hàng"))
         self.label.setText(_translate("Dialog", "Tên khách hàng:"))
         self.label_2.setText(_translate("Dialog", "Số điện thoại:"))
-        self.label_6.setText(_translate("Dialog", "Hãng xe:"))
-        self.label_3.setText(_translate("Dialog", "Biển số xe:"))
+        self.label_3.setText(_translate("Dialog", "Biển số xe"))
         self.label_4.setText(_translate("Dialog", "Ghi chú: "))
+        self.label_5.setText(_translate("Dialog", "Phân loại"))
+        self.comboBox.setItemText(0, _translate("Dialog", "Khách mới"))
+        self.comboBox.setItemText(1, _translate("Dialog", "Khách quay lại thường  xuyên"))
+        self.comboBox.setItemText(2, _translate("Dialog", "Khách VIP"))
+        self.label_6.setText(_translate("Dialog", "Hãng xe:"))
         self.btn_save.setText(_translate("Dialog", "Lưu"))
         self.btn_cancel.setText(_translate("Dialog", "Hủy"))
 import resources_rc
