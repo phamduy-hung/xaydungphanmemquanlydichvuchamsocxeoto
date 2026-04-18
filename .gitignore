@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+venv/
+.env
+
+# SQLite database (sinh ra khi chạy, không cần commit)
+server/bookings.db
+*.db
+
+# Node / Frontend
+khachhang_web/node_modules/
+khachhang_web/dist/
+khachhang_web/.vite/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
