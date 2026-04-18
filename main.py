@@ -154,7 +154,29 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Da mo module CRM.")
 
     def open_inventory_module(self):
-        self._show_placeholder("Quan ly Kho & Vat tu")
+        feature_label = "Quan ly Kho & Vat tu"
+        if not self._require_login(feature_label):
+            return
+        try:
+            from ui.compiled.ui_kho_vattu import KhoVatTuUI
+        except ImportError:
+            QMessageBox.information(
+                self,
+                "Thong bao",
+                f"Chuc nang '{feature_label}' dang duoc phat trien.\n"
+                "Ban co the mo CRM de thu nghiem luong quan ly khach hang.",
+            )
+            return
+
+        window = self.child_windows.get("kho")
+        if window is None:
+            window = KhoVatTuUI()
+            self.child_windows["kho"] = window
+
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        self.statusBar().showMessage("Da mo module Kho & Vat tu.")
 
     def open_staff_module(self):
         self._show_placeholder("Quan ly Nhan su & Nang suat")
