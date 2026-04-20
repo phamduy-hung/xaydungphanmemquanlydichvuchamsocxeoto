@@ -172,6 +172,7 @@ class CustomerManagerWidget(QWidget):
         self.search_keyword = ""
 
         self._setup_tables()
+        self._apply_dark_style()
         self._seed_demo_data()
         self._setup_signals()
         self.refresh_customer_table()
@@ -187,11 +188,6 @@ class CustomerManagerWidget(QWidget):
         self.ui.tbl_customers.setStyleSheet("")
         self.ui.tbl_history.setStyleSheet("")
         
-        # Apply premium look to action buttons using the main.py styles
-        self.ui.btn_themKH.setObjectName("btnPrimary") # Will use main skyblue
-        self.ui.btn_suaKH.setObjectName("btnSecondary") # Will use light skyblue border
-        self.ui.btn_timkiem.setObjectName("btnPrimary")
-
         # Clear legacy minimum sizes
         self.ui.btn_themKH.setMinimumSize(0, 0)
         self.ui.btn_suaKH.setMinimumSize(0, 0)
@@ -214,17 +210,67 @@ class CustomerManagerWidget(QWidget):
         history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         history_table.setAlternatingRowColors(True)
         
-        # Improve the Right Panel (History) styling
-        self.ui.grp_history.setStyleSheet("""
+        self.ui.grp_history.setStyleSheet("")
+        self.ui.label_2.setStyleSheet("")
+        self.ui.label_3.setStyleSheet("")
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0b1220;
+                color: #dbeafe;
+                font-family: "Segoe UI", "Inter";
+            }
             QGroupBox {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                padding-top: 15px;
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                margin-top: 8px;
+            }
+            QGroupBox::title {
+                color: #93c5fd;
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 4px;
+            }
+            QLineEdit, QComboBox, QTextEdit {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 6px 10px;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 12px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QTableWidget {
+                background-color: #0f172a;
+                alternate-background-color: #111b31;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                gridline-color: #1f2937;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QHeaderView::section {
+                background-color: #1e293b;
+                color: #bae6fd;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
             }
         """)
-        self.ui.label_2.setStyleSheet("color: #0f172a; font-size: 14pt; font-weight: 800; border: none;")
-        self.ui.label_3.setStyleSheet("color: #64748b; font-size: 10pt; font-weight: bold; border: none;")
 
     def _setup_signals(self):
         self.ui.btn_themKH.clicked.connect(self.open_add_dialog)

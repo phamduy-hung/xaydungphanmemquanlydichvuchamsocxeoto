@@ -1,0 +1,786 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>800</width>
+    <height>600</height>
+   </size>
+  </property>
+  <property name="font">
+   <font>
+    <family>Segoe UI</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
+  <property name="windowTitle">
+   <string>Chăm sóc khách hàng</string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <item>
+    <widget class="QTabWidget" name="tabWidget_cskh">
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+     <property name="currentIndex">
+      <number>1</number>
+     </property>
+     <widget class="QWidget" name="tab_tichdiem">
+      <attribute name="title">
+       <string>Tích điểm - Hạng VIP</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <item>
+        <widget class="QFrame" name="frame">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QLineEdit" name="txt_timkiem_thanhvien">
+            <property name="placeholderText">
+             <string>Nhập tên/ SĐT khách hàng</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_cauhinh_chietkhau">
+            <property name="text">
+             <string>Tìm kiếm </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="grp_diem_hang">
+         <property name="title">
+          <string>Quy tắc điểm hạng</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <layout class="QFormLayout" name="formLayout">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>Điểm / 1 triệu VNĐ thanh toán:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QSpinBox" name="spn_diem">
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>9999999</number>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>Ngưỡng đồng:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QSpinBox" name="spn_dong">
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>9999999</number>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>Ngưỡng bạc: </string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QSpinBox" name="spn_bac">
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>9999999</number>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>Ngưỡng vàng:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QSpinBox" name="spn_vang">
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>9999999</number>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="label_5">
+              <property name="text">
+               <string>Ngưỡng VIP: </string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QSpinBox" name="spn_vip">
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>9999999</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Chiết khấu mặc định: Đồng 1% - Bạc 3% - Vàng 5% - VIP 8%</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="title">
+          <string>Mô phỏng thanh toán (cộng điểm_thăng hạng)</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <item>
+             <widget class="QLabel" name="label_7">
+              <property name="text">
+               <string>Mã KH:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="txt_nhapmakh">
+              <property name="placeholderText">
+               <string>Ví dụ: 1</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>Số tiền (VNĐ):</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="spn_tien"/>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_ghinhan">
+              <property name="text">
+               <string>Ghi nhận thanh toán</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="tbl_tichdiem">
+         <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>150</number>
+         </attribute>
+         <attribute name="horizontalHeaderStretchLastSection">
+          <bool>true</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>Mã KH</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tên khách hàng</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Số điện thoại</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tổng điểm</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Hạng hiện tại</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Chiết khấu %</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Cần bao nhiêu điểm để lên hạng</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_khuyenmai">
+      <attribute name="title">
+       <string>Quản lý khuyến mãi</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLineEdit" name="txt_timkiem_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>Nhập mã hoặc tên chương trình...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cmb_loc_trangthai_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <item>
+            <property name="text">
+             <string>Tất cả</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Đang áp dụng</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Đã hết hạn/ Hủy</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_timkiem_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Tìm kiếm </string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_them_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Thêm khuyến mãi</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../../assets/resources.qrc">
+             <normaloff>:/icons/icons/themKH.png</normaloff>:/icons/icons/themKH.png</iconset>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_sua_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Sửa thông tin</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../../assets/resources.qrc">
+             <normaloff>:/icons/icons/suaKH.png</normaloff>:/icons/icons/suaKH.png</iconset>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_xoa_voucher">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Xóa / Hủy</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../../assets/resources.qrc">
+             <normaloff>:/icons/icons/xoaKH.png</normaloff>:/icons/icons/xoaKH.png</iconset>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="tbl_khuyenmai">
+         <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>167</number>
+         </attribute>
+         <attribute name="horizontalHeaderStretchLastSection">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>Mã Voucher</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tên chương trình</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Hình thức </string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Giá trị giảm</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Ngày bắt đầu</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Ngày kết thúc</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Trạng thái</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_nhacnho">
+      <attribute name="title">
+       <string>Nhắc nhở - Gửi tin tự động</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_9">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QGroupBox" name="grp_thongbao_tudong">
+           <property name="title">
+            <string>Cấu hình Thông báo tự động</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_4">
+              <item>
+               <widget class="QCheckBox" name="chk_kenh_sms">
+                <property name="text">
+                 <string>SMS</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="chk_kenh_zalo">
+                <property name="text">
+                 <string>ZALO</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="chk_kenh_email">
+                <property name="text">
+                 <string>Email</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_2">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QFormLayout" name="formLayout_3">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_13">
+                <property name="text">
+                 <string>Mẫu cảm ơn thanh toán:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_14">
+                <property name="text">
+                 <string>Mẫu chúc sinh nhật + Mã giảm giá:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QTextEdit" name="txt_mau_sinhnhat">
+                <property name="placeholderText">
+                 <string>Chuc mung sinh nhat {ten}! Ma giam: {ma_giam} — het han {ngay_het_han}.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QTextEdit" name="txt_mau_camon">
+                <property name="placeholderText">
+                 <string>Cam on {ten}! Hoa don dien tu: {link_hd} (Ma: {ma_hd})</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_luu_cauhinh_thongbao">
+              <property name="text">
+               <string>Lưu cấu hình</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="grp_nhaclich_baoduong">
+           <property name="title">
+            <string>Nhắc lịch bảo dưỡng</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_8">
+            <item>
+             <layout class="QFormLayout" name="formLayout_4">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_15">
+                <property name="text">
+                 <string>Dịch vụ:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="txt_tendichvu_nhac">
+                <property name="placeholderText">
+                 <string>Nhập tên dịch vụ</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="spn_thang_nhac"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_16">
+                <property name="text">
+                 <string>Nhắc sau - tháng:</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_them_quytac_nhac">
+              <property name="text">
+               <string>Thêm quy tắc</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTableWidget" name="tbl_quytac_nhaclich">
+              <column>
+               <property name="text">
+                <string>Dịch vụ</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Nhắc sau (tháng)</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Ngày tạo</string>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_mophong_gui">
+         <property name="text">
+          <string>Mô phỏng chạy thử</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="tbl_mophong_thongbao">
+         <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>180</number>
+         </attribute>
+         <attribute name="horizontalHeaderStretchLastSection">
+          <bool>true</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>Thời gian</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Kênh</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tóm tắt nội dung</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_phanhoi">
+      <attribute name="title">
+       <string>Đánh giá - Phản hồi </string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_7">
+       <item>
+        <widget class="QLabel" name="label_9">
+         <property name="text">
+          <string>Ghi nhận đánh giá, khiếu nại, theo dõi gọi hỏi thăm sau 3 ngày sử dụng dịch vụ</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_4">
+         <property name="title">
+          <string>Ghi phản hồi mới</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_6">
+          <item>
+           <layout class="QFormLayout" name="formLayout_2">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_10">
+              <property name="text">
+               <string>Tên KH:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="txt_tenkhach">
+              <property name="placeholderText">
+               <string>Nhập tên khách hàng</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QComboBox" name="cmb_loai">
+              <item>
+               <property name="text">
+                <string>Khen</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Góp ý </string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Khiếu nại</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QTextEdit" name="txt_noidung"/>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_11">
+              <property name="text">
+               <string>Loại:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="label_12">
+              <property name="text">
+               <string>Nội dung:</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_xacnhan">
+            <property name="text">
+             <string>Xác nhận</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="tbl_phanhoi">
+         <column>
+          <property name="text">
+           <string>Ngày ghi</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Tên khách hàng</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Loại</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Nội dung</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Hẹn gọi lại</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Trạng thái</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_danhdau">
+         <property name="text">
+          <string>Đánh dấu đã gọi hỏi thăm (sau 3 ngày)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../../assets/resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

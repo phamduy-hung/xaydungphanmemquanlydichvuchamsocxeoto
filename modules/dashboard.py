@@ -6,13 +6,14 @@ from PyQt5.QtCore import Qt
 class DashboardWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.setObjectName("dashboardRoot")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(25)
 
         # Header Title
         lbl_title = QLabel("TỔNG QUAN HOẠT ĐỘNG")
-        lbl_title.setStyleSheet("color: #0f172a; font-size: 22pt; font-weight: 900; letter-spacing: -0.5px;")
+        lbl_title.setObjectName("dashboardTitle")
         layout.addWidget(lbl_title)
 
         # Stat cards row
@@ -29,7 +30,7 @@ class DashboardWidget(QWidget):
 
         # Quick actions
         lbl_action = QLabel("Thao tác nhanh")
-        lbl_action.setStyleSheet("color: #475569; font-size: 14pt; font-weight: bold; margin-top: 10px;")
+        lbl_action.setObjectName("dashboardSubTitle")
         layout.addWidget(lbl_action)
 
         actions_lay = QHBoxLayout()
@@ -46,57 +47,98 @@ class DashboardWidget(QWidget):
 
         layout.addLayout(actions_lay)
         layout.addStretch()
+        self._apply_dark_style()
 
     def _make_stat_card(self, title, value, color, sub):
         card = QFrame()
         card.setObjectName("cardFrame")
-        card.setGraphicsEffect(None) # Potential shadow if I want but CSS is safer
-        card.setFixedSize(280, 160)
+        card.setFixedSize(300, 165)
         clay = QVBoxLayout(card)
-        clay.setContentsMargins(25, 25, 25, 25)
+        clay.setContentsMargins(0, 0, 0, 16)
         clay.setSpacing(10)
 
+        accent = QFrame()
+        accent.setObjectName("cardAccent")
+        accent.setFixedHeight(4)
+        accent.setStyleSheet(f"QFrame#cardAccent {{ background-color: {color}; border: none; }}")
+        clay.addWidget(accent)
+
+        inner = QVBoxLayout()
+        inner.setContentsMargins(18, 10, 18, 0)
+        inner.setSpacing(8)
+
         lbl_t = QLabel(title.upper())
-        lbl_t.setStyleSheet(f"color: {color}; font-size: 10pt; font-weight: 800; border: none;")
-        
+        lbl_t.setObjectName("cardTitle")
         lbl_v = QLabel(value)
-        lbl_v.setStyleSheet(f"color: #0f172a; font-size: 26pt; font-weight: 900; border: none;")
-        
+        lbl_v.setObjectName("cardValue")
         lbl_s = QLabel(sub)
-        lbl_s.setStyleSheet("color: #64748b; font-size: 10pt; border: none;")
+        lbl_s.setObjectName("cardSub")
 
-        clay.addWidget(lbl_t)
-        clay.addWidget(lbl_v)
-        clay.addStretch()
-        clay.addWidget(lbl_s)
+        inner.addWidget(lbl_t)
+        inner.addWidget(lbl_v)
+        inner.addStretch()
+        inner.addWidget(lbl_s)
+        clay.addLayout(inner)
 
-        # Colorful left accent
-        card.setStyleSheet(f"""
-            QFrame#cardFrame {{
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                border-left: 6px solid {color};
-            }}
-        """)
         return card
 
     def _make_action_btn(self, text, brand_color):
         b = QPushButton(text)
         b.setMinimumHeight(45)
         b.setMinimumWidth(200)
-        b.setStyleSheet(f"""
-            QPushButton {{
-                background-color: #ffffff;
-                color: {brand_color};
-                border: 1px solid {brand_color};
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 11pt;
-            }}
-            QPushButton:hover {{
-                background-color: {brand_color};
-                color: #ffffff;
-            }}
-        """)
+        b.setProperty("brandColor", brand_color)
         return b
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget#dashboardRoot {
+                background: transparent;
+                color: #dbeafe;
+                font-family: "Segoe UI";
+            }
+            QLabel#dashboardTitle {
+                color: #f8fafc;
+                font-size: 30px;
+                font-weight: 800;
+            }
+            QLabel#dashboardSubTitle {
+                color: #93c5fd;
+                font-size: 16px;
+                font-weight: 700;
+            }
+            QFrame#cardFrame {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 12px;
+            }
+            QFrame#cardFrame QLabel#cardTitle {
+                color: #93c5fd;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+            }
+            QFrame#cardFrame QLabel#cardValue {
+                color: #f8fafc;
+                font-size: 28px;
+                font-weight: 800;
+            }
+            QFrame#cardFrame QLabel#cardSub {
+                color: #cbd5e1;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 14px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+        """)

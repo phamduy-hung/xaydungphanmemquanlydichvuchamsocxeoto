@@ -1,0 +1,49 @@
+{
+  "loyalty": {
+    "diem_moi_1trieu": 10,
+    "nguong_dong": 0,
+    "nguong_bac": 500,
+    "nguong_vang": 1500,
+    "nguong_vip": 5000,
+    "khach": [
+      {
+        "id": "1",
+        "ten": "Nguyễn Văn A",
+        "sdt": "0901122334",
+        "diem": 120,
+        "hang": "Đồng",
+        "chiet_khau": 1
+      },
+      {
+        "id": "2",
+        "ten": "Trần Thị B",
+        "sdt": "0988777666",
+        "diem": 5200,
+        "hang": "VIP",
+        "chiet_khau": 8
+      }
+    ]
+  },
+  "vouchers": [
+    {
+      "id": "db63a65a-ddd4-4209-b13c-e3502ca3e085",
+      "ma": "TET2026",
+      "ten_chuong_trinh": "Khuyến mãi Tết",
+      "loai": "percent",
+      "gia_tri": 10,
+      "ngay_bd": "2026-04-20",
+      "ngay_kt": "2026-12-31",
+      "ghi_chu": "Áp dụng toàn bộ dịch vụ"
+    }
+  ],
+  "thong_bao": {
+    "sms": true,
+    "zalo": false,
+    "email": false,
+    "mau_cam_on": "",
+    "mau_sinh_nhat": ""
+  },
+  "nhat_ky_gui": [],
+  "nhac_lich": [],
+  "phan_hoi": []
+}

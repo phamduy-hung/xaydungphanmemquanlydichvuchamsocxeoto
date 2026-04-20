@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>508</height>
+   </rect>
+  </property>
+  <property name="font">
+   <font>
+    <family>Segoe UI</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
+  <property name="windowTitle">
+   <string>Thêm/ Sửa Voucher</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="label">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Mã Voucher:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="txt_ma_voucher">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLineEdit, QTextEdit {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    background-color: #ffffff;
+    selection-background-color: #007bff;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
+}</string>
+     </property>
+     <property name="placeholderText">
+      <string>Ví dụ: GIAM50K</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_2">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Tên chương trình:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="txt_ten_voucher">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLineEdit, QTextEdit {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    background-color: #ffffff;
+    selection-background-color: #007bff;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
+}</string>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="placeholderText">
+      <string>Ví dụ: Khuyến mãi Hè 2024</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_3">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Loại giảm giá:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="cmb_loai_khuyenmai">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QComboBox {
+    border: 1px solid #ced4da; /* Viền xám nhạt */
+    border-radius: 5px;        /* Bo tròn 5px */
+    padding: 5px 10px;         /* Khoảng cách chữ bên trong */
+    background-color: white;   /* Nền trắng */
+    color: #333333;            /* Chữ màu xám đen */
+}
+
+/* Tùy chỉnh cái nút mũi tên xổ xuống */
+QComboBox::drop-down {
+    border: none;
+    width: 30px; /* Mở rộng chiều ngang một chút cho dễ bấm */
+}
+
+/* Chèn icon mũi tên màu đen */
+/* Chèn icon mũi tên màu đen */
+QComboBox::down-arrow {
+    image: url(&quot;C:/Users/LENOVO/OneDrive/Documents/xaydungphanmemquanlydichvuchamsocxeoto/assets/icons/muiten.png&quot;); 
+    width: 12px;  
+    height: 12px;
+}
+
+/* Hiệu ứng khi mũi tên xổ xuống (tùy chọn) */
+QComboBox::down-arrow:on {
+    top: 1px; /* Đẩy mũi tên xuống 1px khi click tạo cảm giác chân thực */
+}</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>Giảm theo %</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Giảm theo số tiền (VNĐ)</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="txt_gia_tri">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLineEdit, QTextEdit {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    background-color: #ffffff;
+    selection-background-color: #007bff;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
+}</string>
+     </property>
+     <property name="placeholderText">
+      <string>Nhập số tiền VNĐ hoặc số %</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_4">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Ngày bắt đầu:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDateEdit" name="dat_ngay_bd">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QDateEdit {
+    border: 1px solid #ced4da; /* Viền xám nhạt */
+    border-radius: 5px;        /* Bo tròn 5px */
+    padding: 5px 10px;         /* Khoảng cách chữ bên trong */
+    background-color: white;   /* Nền trắng */
+    color: #333333;            /* Chữ màu xám đen */
+}
+</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_5">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Ngày kết thúc:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDateEdit" name="dat_ngay_kt">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QDateEdit {
+    border: 1px solid #ced4da; /* Viền xám nhạt */
+    border-radius: 5px;        /* Bo tròn 5px */
+    padding: 5px 10px;         /* Khoảng cách chữ bên trong */
+    background-color: white;   /* Nền trắng */
+    color: #333333;            /* Chữ màu xám đen */
+}
+</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_6">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Ghi chú:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTextEdit" name="txt_mota_voucher">
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLineEdit, QTextEdit {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    background-color: #ffffff;
+    selection-background-color: #007bff;
+}
+QLineEdit:focus, QTextEdit:focus {
+    border: 1px solid #80bdff; /* Đổi viền sang màu xanh khi đang gõ chữ */
+}</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_luu_voucher">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+         <pointsize>10</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: #007bff; /* Màu xanh dương hiện đại */
+    color: white;
+    border-radius: 5px;
+    padding: 8px 15px;         /* Cho nút dài ra một chút */
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #0056b3; /* Xanh đậm hơn khi lia chuột */
+}</string>
+       </property>
+       <property name="text">
+        <string>Lưu</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../../assets/resources.qrc">
+         <normaloff>:/icons/icons/luu.png</normaloff>:/icons/icons/luu.png</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_huy_bo">
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+         <pointsize>10</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: #6c757d; /* Màu xám trung tính */
+    color: white;
+    border-radius: 5px;
+    padding: 8px 15px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #5a6268; /* Xám đậm hơn khi lia chuột */
+}</string>
+       </property>
+       <property name="text">
+        <string>Hủy</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../../assets/resources.qrc">
+         <normaloff>:/icons/icons/huy.png</normaloff>:/icons/icons/huy.png</iconset>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../../assets/resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

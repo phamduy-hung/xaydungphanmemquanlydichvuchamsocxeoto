@@ -24,10 +24,7 @@ class BaoCaoWindow(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
-        # Premium Styling for Report Header
-        self.ui.centralwidget.setStyleSheet("background-color: #f8fafc;")
-        self.ui.lbl_summary.setStyleSheet("color: #10b981; font-size: 16pt; font-weight: 800;")
+        self._apply_dark_style()
         
         self._setup_default_dates()
         self._setup_signals()
@@ -39,29 +36,7 @@ class BaoCaoWindow(QMainWindow):
         self.ui.date_tu_ngay.setDate(today.addMonths(-1))
 
     def _setup_signals(self):
-        # Apply premium look to report buttons
-        btn_style = """
-            QPushButton {
-                background-color: #ffffff;
-                color: #475569;
-                border: 1px solid #e2e8f0;
-                padding: 10px 15px;
-                font-weight: bold;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: #f0f9ff;
-                color: #0ea5e9;
-                border: 1px solid #0ea5e9;
-            }
-            QPushButton:checked {
-                background-color: #0ea5e9;
-                color: #ffffff;
-                border: 1px solid #0ea5e9;
-            }
-        """
         for btn in [self.ui.btn_doanh_thu, self.ui.btn_dich_vu, self.ui.btn_nhan_vien]:
-            btn.setStyleSheet(btn_style)
             btn.setCheckable(True)
             btn.setAutoExclusive(True)
 
@@ -69,6 +44,69 @@ class BaoCaoWindow(QMainWindow):
         self.ui.btn_dich_vu.clicked.connect(self.show_report_dich_vu)
         self.ui.btn_nhan_vien.clicked.connect(self.show_report_nhan_vien)
         self.ui.btn_doanh_thu.setChecked(True)
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0b1220;
+                color: #dbeafe;
+                font-family: "Segoe UI", "Inter";
+            }
+            QFrame, QGroupBox {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 10px;
+            }
+            QLabel {
+                color: #dbeafe;
+            }
+            #lbl_summary {
+                color: #22d3ee;
+                font-weight: 800;
+            }
+            QDateEdit, QComboBox, QLineEdit {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 6px 10px;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 14px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QPushButton:checked {
+                background-color: #0284c7;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QTableWidget {
+                background-color: #0f172a;
+                alternate-background-color: #111b31;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                gridline-color: #1f2937;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QHeaderView::section {
+                background-color: #1e293b;
+                color: #bae6fd;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
+            }
+        """)
 
     def _render_table(self, headers, rows):
         table = self.ui.table_report
@@ -83,6 +121,7 @@ class BaoCaoWindow(QMainWindow):
         table.verticalHeader().setVisible(False)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setAlternatingRowColors(True)
 
         for row_idx, row_data in enumerate(rows):
             for col_idx, value in enumerate(row_data):

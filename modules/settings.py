@@ -7,19 +7,18 @@ from PyQt5.QtCore import Qt
 class SettingsWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.setObjectName("settingsRoot")
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(30, 30, 30, 30)
 
         lbl_title = QLabel("CÀI ĐẶT HỆ THỐNG")
-        lbl_title.setStyleSheet("color: #0f172a; font-size: 22pt; font-weight: 900;")
         main_layout.addWidget(lbl_title)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setObjectName("settingsContainer")
         lay = QVBoxLayout(container)
         lay.setSpacing(25)
 
@@ -35,26 +34,23 @@ class SettingsWidget(QWidget):
         b_lay = QHBoxLayout()
         b_lay.addStretch()
         btn_save = QPushButton("LƯU CÀI ĐẶT")
+        btn_save.setObjectName("btnSaveSettings")
         btn_save.setMinimumHeight(45)
         btn_save.setMinimumWidth(200)
-        btn_save.setStyleSheet("""
-            QPushButton { background-color: #10b981; color: #ffffff; border-radius: 8px; font-weight: bold; font-size: 11pt; }
-            QPushButton:hover { background-color: #34d399; }
-        """)
         b_lay.addWidget(btn_save)
         main_layout.addLayout(b_lay)
+        self._apply_dark_style()
 
     def _make_section(self, title, content_widget):
         frame = QFrame()
-        frame.setStyleSheet("QFrame { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }")
+        frame.setObjectName("settingsSection")
         flay = QVBoxLayout(frame)
         flay.setContentsMargins(20, 20, 20, 20)
 
         lbl = QLabel(title)
-        lbl.setStyleSheet("border: none; color: #0ea5e9; font-weight: bold; font-size: 14pt; margin-bottom: 10px;")
+        lbl.setObjectName("settingsSectionTitle")
         flay.addWidget(lbl)
-        
-        content_widget.setStyleSheet("border: none;")
+
         flay.addWidget(content_widget)
         return frame
 
@@ -67,9 +63,6 @@ class SettingsWidget(QWidget):
         t2 = QLineEdit("Số 123 Đường Sài Gòn, Quận 1, TPHCM")
         t3 = QLineEdit("0999 888 777")
         
-        for t in (t1, t2, t3):
-            t.setStyleSheet("border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 11pt;")
-
         f.addRow(self._lbl("Tên Trung Tâm:"), t1)
         f.addRow(self._lbl("Địa Chỉ:"), t2)
         f.addRow(self._lbl("Hotline:"), t3)
@@ -84,11 +77,6 @@ class SettingsWidget(QWidget):
         t2 = QLineEdit("sk_prod_123456789xxxx")
         cb = QCheckBox("Bật đồng bộ Web Bookings Tự Động")
         cb.setChecked(True)
-        cb.setStyleSheet("font-size: 11pt; color: #334155;")
-
-        for t in (t1, t2):
-            t.setStyleSheet("border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 11pt;")
-
         f.addRow(self._lbl("Endpoint Website:"), t1)
         f.addRow(self._lbl("API Key (Bảo mật):"), t2)
         f.addRow(self._lbl("Đồng bộ:"), cb)
@@ -101,10 +89,7 @@ class SettingsWidget(QWidget):
 
         c = QComboBox()
         c.addItems(["Khổ giấy 80mm", "Khổ giấy 58mm", "Khổ A4"])
-        c.setStyleSheet("border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 11pt;")
-        
         t = QLineEdit("10%")
-        t.setStyleSheet("border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 11pt; width: 100px;")
         
         f.addRow(self._lbl("Máy In Hóa Đơn:"), c)
         f.addRow(self._lbl("Mặc định Thuế VAT:"), t)
@@ -112,5 +97,63 @@ class SettingsWidget(QWidget):
 
     def _lbl(self, text):
         l = QLabel(text)
-        l.setStyleSheet("color: #475569; font-weight: bold; font-size: 11pt;")
+        l.setObjectName("settingsLabel")
         return l
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget#settingsRoot {
+                background: transparent;
+                color: #dbeafe;
+                font-family: "Segoe UI", "Inter";
+            }
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+            QScrollArea QWidget#qt_scrollarea_viewport {
+                background-color: #0b1220;
+            }
+            QWidget#settingsContainer {
+                background-color: #0b1220;
+            }
+            QFrame#settingsSection {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 12px;
+            }
+            QLabel#settingsSectionTitle {
+                color: #93c5fd;
+                font-size: 14px;
+                font-weight: 800;
+            }
+            QLabel#settingsLabel {
+                color: #cbd5e1;
+                font-weight: 600;
+            }
+            QLineEdit, QComboBox {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 7px 10px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border: 1px solid #38bdf8;
+            }
+            QCheckBox {
+                color: #cbd5e1;
+            }
+            QPushButton#btnSaveSettings {
+                background-color: #0ea5e9;
+                color: #f8fafc;
+                border: 1px solid #38bdf8;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+            QPushButton#btnSaveSettings:hover {
+                background-color: #0284c7;
+            }
+        """)

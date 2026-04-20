@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt
 class POSWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.setObjectName("posRoot")
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
@@ -16,12 +17,11 @@ class POSWidget(QWidget):
         left_panel.setSpacing(15)
         
         lbl_avail = QLabel("📦 DANH MỤC DỊCH VỤ & VẬT TƯ")
-        lbl_avail.setStyleSheet("color: #0f172a; font-size: 18pt; font-weight: 800;")
+        lbl_avail.setObjectName("posTitle")
         left_panel.addWidget(lbl_avail)
 
         search = QLineEdit()
         search.setPlaceholderText("Gõ để tìm kiếm dịch vụ hoặc sản phẩm...")
-        search.setStyleSheet("padding: 12px; font-size: 11pt; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff;")
         left_panel.addWidget(search)
 
         self.tbl_items = QTableWidget()
@@ -52,33 +52,25 @@ class POSWidget(QWidget):
 
         # Right: Cart / Receipt 
         right_panel = QFrame()
-        right_panel.setStyleSheet("""
-            QFrame { 
-                background: #ffffff; 
-                border: 1px solid #e2e8f0; 
-                border-radius: 12px; 
-            }
-        """)
+        right_panel.setObjectName("posCard")
         right_lay = QVBoxLayout(right_panel)
         right_lay.setContentsMargins(25, 25, 25, 25)
         right_lay.setSpacing(15)
 
         lbl_cart = QLabel("🗒️ HÓA ĐƠN CHI TIẾT")
-        lbl_cart.setStyleSheet("border: none; color: #0ea5e9; font-size: 16pt; font-weight: 900;")
+        lbl_cart.setObjectName("posTitle")
         right_lay.addWidget(lbl_cart)
 
         # Customer selection
         cust_box = QFrame()
-        cust_box.setStyleSheet("background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;")
         cust_lay = QVBoxLayout(cust_box)
         
         lbl_c_title = QLabel("KHÁCH HÀNG")
-        lbl_c_title.setStyleSheet("border: none; font-size: 8pt; font-weight: 800; color: #64748b;")
+        lbl_c_title.setObjectName("posSubTitle")
         cust_lay.addWidget(lbl_c_title)
 
         cust_search = QLineEdit()
         cust_search.setPlaceholderText("SĐT hoặc Tên khách...")
-        cust_search.setStyleSheet("padding: 5px; font-size: 11pt; border: none; background: transparent;")
         cust_lay.addWidget(cust_search)
         right_lay.addWidget(cust_box)
 
@@ -89,7 +81,6 @@ class POSWidget(QWidget):
         c_header.setSectionResizeMode(QHeaderView.Stretch)
         c_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.tbl_cart.verticalHeader().setVisible(False)
-        self.tbl_cart.setStyleSheet("border: none; border-bottom: 2px dashed #cbd5e1;")
         
         # Mock cart
         self.tbl_cart.setRowCount(1)
@@ -101,20 +92,94 @@ class POSWidget(QWidget):
         # Summary
         sum_lay = QHBoxLayout()
         lbl_total_t = QLabel("TỔNG CỘNG:")
-        lbl_total_t.setStyleSheet("border: none; font-size: 16pt; font-weight: bold; color: #334155;")
         lbl_total_v = QLabel("650.000 đ")
-        lbl_total_v.setStyleSheet("border: none; font-size: 20pt; font-weight: 900; color: #10b981;")
+        lbl_total_t.setObjectName("posSubTitle")
+        lbl_total_v.setObjectName("posTotal")
         sum_lay.addWidget(lbl_total_t)
         sum_lay.addStretch()
         sum_lay.addWidget(lbl_total_v)
         right_lay.addLayout(sum_lay)
 
         btn_pay = QPushButton("THANH TOÁN (F9)")
+        btn_pay.setObjectName("btnPay")
         btn_pay.setMinimumHeight(55)
-        btn_pay.setStyleSheet("""
-            QPushButton { background-color: #0ea5e9; color: #ffffff; border-radius: 8px; font-size: 16pt; font-weight: 900; }
-            QPushButton:hover { background-color: #0284c7; }
-        """)
         right_lay.addWidget(btn_pay)
 
         layout.addWidget(right_panel, stretch=1)
+        self._apply_dark_style()
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget#posRoot {
+                background: transparent;
+                color: #dbeafe;
+                font-family: "Segoe UI";
+            }
+            QLabel#posTitle {
+                color: #f8fafc;
+                font-size: 18px;
+                font-weight: 800;
+            }
+            QLabel#posSubTitle {
+                color: #93c5fd;
+                font-weight: 700;
+            }
+            QLabel#posTotal {
+                color: #22d3ee;
+                font-size: 20px;
+                font-weight: 800;
+            }
+            QFrame#posCard, QFrame {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 12px;
+            }
+            QLineEdit {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 8px 10px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #38bdf8;
+            }
+            QTableWidget {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                gridline-color: #1f2937;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QHeaderView::section {
+                background-color: #1e293b;
+                color: #bae6fd;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 14px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QPushButton#btnPay {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+                font-size: 16px;
+            }
+            QPushButton#btnPay:hover {
+                background-color: #0284c7;
+            }
+        """)

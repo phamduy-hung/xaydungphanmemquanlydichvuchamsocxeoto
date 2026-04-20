@@ -31,7 +31,8 @@ API_BASE = "http://localhost:8765/api"
 def _http_get(url: str):
     """Gửi GET request, trả về dict hoặc list. None nếu lỗi."""
     try:
-        with urlopen(url, timeout=3) as resp:
+        # Keep timeout short to avoid freezing the Qt UI thread.
+        with urlopen(url, timeout=1) as resp:
             return json.loads(resp.read().decode())
     except Exception:
         return None
@@ -59,14 +60,17 @@ class WebBookingsWidget(QWidget):
 
     def __init__(self, crm_widget=None, parent=None):
         super().__init__(parent)
+        self.setObjectName("webBookingRoot")
         self.crm_widget = crm_widget   # Tham chiếu tới CRM widget nếu có
         self._pending_data = []        # Cache danh sách pending
         self._all_data = []            # Cache tất cả đơn
         self._api_online = False
+        self._polling_enabled = False
 
         self.setWindowTitle("ProCare: Web Bookings")
         self.resize(1100, 700)
         self._build_ui()
+        self._apply_dark_style()
         self._start_polling()
 
     # ──────────────────────────────
@@ -80,16 +84,15 @@ class WebBookingsWidget(QWidget):
         # ─── Header ───
         header = QHBoxLayout()
         title = QLabel("DANH SÁCH ĐẶT LỊCH TRỰC TUYẾN")
-        title.setStyleSheet("color: #0f172a; font-size: 18pt; font-weight: 800;")
         header.addWidget(title)
 
         header.addStretch()
 
         self.lbl_status = QLabel("CONNECTING...")
-        self.lbl_status.setStyleSheet("color: #64748b; font-size: 11pt; font-weight: bold; letter-spacing: 1px;")
         header.addWidget(self.lbl_status)
 
         self.btn_refresh = QPushButton("LÀM MỚI")
+        self.btn_refresh.setObjectName("btnWebRefresh")
         self.btn_refresh.setFixedWidth(120)
         self.btn_refresh.clicked.connect(self._do_refresh)
         header.addWidget(self.btn_refresh)
@@ -99,7 +102,6 @@ class WebBookingsWidget(QWidget):
         # ─── Separator ───
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #334155;")
         root.addWidget(sep)
 
         # ─── Stat bar ───
@@ -133,22 +135,12 @@ class WebBookingsWidget(QWidget):
     def _stat_card(self, label: str, value: str, color: str):
         frame = QFrame()
         frame.setFixedSize(220, 100)
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                border-left: 5px solid {color};
-            }}
-        """)
         lay = QVBoxLayout(frame)
         lay.setContentsMargins(20, 12, 20, 12)
         
         lbl_val = QLabel(value)
-        lbl_val.setStyleSheet(f"color: #0f172a; font-size: 22pt; font-weight: 900; border: none;")
         
         lbl_lbl = QLabel(label.upper())
-        lbl_lbl.setStyleSheet(f"color: {color}; font-size: 9pt; font-weight: 800; border: none;")
         
         lay.addWidget(lbl_lbl)
         lay.addWidget(lbl_val)
@@ -160,7 +152,6 @@ class WebBookingsWidget(QWidget):
         lay.setSpacing(8)
 
         info = QLabel("Các đơn đặt lịch mới từ website đang chờ nhân viên xử lý. Bấm [TIẾP NHẬN] để chuyển dữ liệu khách hàng vào hệ thống CRM.")
-        info.setStyleSheet("color: #475569; font-size: 10.5pt;")
         info.setWordWrap(True)
         lay.addWidget(info)
 
@@ -183,23 +174,15 @@ class WebBookingsWidget(QWidget):
         btn_row.setSpacing(10)
 
         self.btn_accept = QPushButton("TIẾP NHẬN VÀO CRM")
+        self.btn_accept.setObjectName("btnWebAccept")
         self.btn_accept.setFixedWidth(220)
         self.btn_accept.setFixedHeight(40)
-        self.btn_accept.setStyleSheet("""
-            QPushButton { background-color: #10b981; color: #ffffff; font-weight: bold; border-radius: 6px; font-size: 11pt; border: none; }
-            QPushButton:hover { background-color: #34d399; }
-            QPushButton:pressed { background-color: #059669; }
-        """)
         self.btn_accept.clicked.connect(self._accept_selected)
 
         self.btn_reject = QPushButton("TỪ CHỐI")
+        self.btn_reject.setObjectName("btnWebReject")
         self.btn_reject.setFixedWidth(120)
         self.btn_reject.setFixedHeight(40)
-        self.btn_reject.setStyleSheet("""
-            QPushButton { background-color: #f8fafc; color: #ef4444; border: 1px solid #e2e8f0; font-weight: bold; border-radius: 6px; font-size: 11pt; }
-            QPushButton:hover { background-color: #fef2f2; border: 1px solid #fca5a5; }
-            QPushButton:pressed { background-color: #fee2e2; }
-        """)
         self.btn_reject.clicked.connect(self._reject_selected)
 
         btn_row.addWidget(self.btn_accept)
@@ -239,14 +222,94 @@ class WebBookingsWidget(QWidget):
         tbl.setAlternatingRowColors(True)
         return tbl
 
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget#webBookingRoot {
+                background: transparent;
+                color: #dbeafe;
+                font-family: "Segoe UI";
+            }
+            QLabel {
+                color: #dbeafe;
+            }
+            QFrame {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 10px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #334155;
+                background-color: #111827;
+                border-radius: 10px;
+            }
+            QTabBar::tab {
+                background: #1e293b;
+                color: #cbd5e1;
+                padding: 8px 14px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                margin-right: 3px;
+            }
+            QTabBar::tab:selected {
+                background: #0ea5e9;
+                color: #f8fafc;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 14px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QPushButton#btnWebAccept {
+                background-color: #0f766e;
+                border: 1px solid #14b8a6;
+            }
+            QPushButton#btnWebReject {
+                background-color: #7f1d1d;
+                border: 1px solid #ef4444;
+            }
+            QTableWidget {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                gridline-color: #1f2937;
+                selection-background-color: #0ea5e9;
+            }
+            QHeaderView::section {
+                background-color: #1e293b;
+                color: #bae6fd;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
+            }
+        """)
+
     # ──────────────────────────────
     # Polling timer
     # ──────────────────────────────
     def _start_polling(self):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._do_refresh)
-        self._timer.start(5000)   # 5 giây
-        self._do_refresh()        # Lần đầu ngay lập tức
+        self.set_polling_enabled(True)
+
+    def set_polling_enabled(self, enabled: bool, refresh_now: bool = True):
+        """Bật/tắt polling để tránh chặn UI khi user không ở trang web bookings."""
+        self._polling_enabled = bool(enabled)
+        if self._polling_enabled:
+            if not self._timer.isActive():
+                self._timer.start(5000)   # 5 giây
+            if refresh_now:
+                self._do_refresh()        # Refresh ngay khi bật (nếu cần)
+        else:
+            self._timer.stop()
 
     def _do_refresh(self):
         pending = _http_get(f"{API_BASE}/bookings/pending")
@@ -255,12 +318,10 @@ class WebBookingsWidget(QWidget):
         if pending is None:
             self._api_online = False
             self.lbl_status.setText("API OFFLINE")
-            self.lbl_status.setStyleSheet("color: #ef4444; font-size: 10pt; font-weight: bold;")
             return
 
         self._api_online = True
         self.lbl_status.setText("API ONLINE")
-        self.lbl_status.setStyleSheet("color: #10b981; font-size: 10pt; font-weight: bold;")
 
         # Detect đơn mới
         old_ids = {b["id"] for b in self._pending_data}
@@ -272,9 +333,9 @@ class WebBookingsWidget(QWidget):
         self._render_pending()
         self._render_all()
         self._update_stats()
+        self.pending_count_changed.emit(len(self._pending_data))
 
         if new_entries:
-            self.pending_count_changed.emit(len(self._pending_data))
             self._notify_new(new_entries)
 
     # ──────────────────────────────
