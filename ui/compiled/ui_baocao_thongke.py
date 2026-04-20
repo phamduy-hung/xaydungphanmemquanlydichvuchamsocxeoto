@@ -76,10 +76,10 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Bao Cao Thong Ke Car Care"))
-        self.label.setText(_translate("MainWindow", "Tu ngay:"))
-        self.label_2.setText(_translate("MainWindow", "Den ngay:"))
-        self.btn_doanh_thu.setText(_translate("MainWindow", "Doanh thu va Loi nhuan"))
-        self.btn_dich_vu.setText(_translate("MainWindow", "Dich vu ban chay"))
-        self.btn_nhan_vien.setText(_translate("MainWindow", "Hieu suat nhan vien"))
-        self.lbl_summary.setText(_translate("MainWindow", "Tong doanh thu: 0 VND"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Báo Cáo Thống Kê AutoCare"))
+        self.label.setText(_translate("MainWindow", "Từ ngày:"))
+        self.label_2.setText(_translate("MainWindow", "Đến ngày:"))
+        self.btn_doanh_thu.setText(_translate("MainWindow", "Doanh thu và Lợi nhuận"))
+        self.btn_dich_vu.setText(_translate("MainWindow", "Dịch vụ bán chạy"))
+        self.btn_nhan_vien.setText(_translate("MainWindow", "Hiệu suất nhân viên"))
+        self.lbl_summary.setText(_translate("MainWindow", "Tổng doanh thu: 0 VND"))

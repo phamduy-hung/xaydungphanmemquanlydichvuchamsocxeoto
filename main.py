@@ -1,15 +1,14 @@
-import inspect
 import sys
 from pathlib import Path
-
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget, QPushButton
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ui.compiled.ui_trangchu import Ui_MainWindow
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QMessageBox, QWidget, 
+                             QPushButton, QVBoxLayout, QHBoxLayout, QStackedWidget,
+                             QFrame, QLabel)
+from PyQt5.QtCore import Qt, QTimer
 
 try:
     from modules.qlkhachhang import CustomerManagerWidget
@@ -23,505 +22,508 @@ except Exception:
     WebBookingsWidget = None
     WEB_BOOKINGS_AVAILABLE = False
 
-BaoCaoWindow = None
+try:
+    from ui.compiled.ui_kho_vattu import KhoVatTuUI
+except Exception:
+    KhoVatTuUI = None
+    
+try:
+    from modules.baocao_thongke import BaoCaoWindow
+except Exception:
+    BaoCaoWindow = None
 
+try:
+    from modules.dashboard import DashboardWidget
+except Exception:
+    DashboardWidget = None
+
+try:
+    from modules.pos import POSWidget
+except Exception:
+    POSWidget = None
+
+try:
+    from modules.settings import SettingsWidget
+except Exception:
+    SettingsWidget = None
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-        self.setStyleSheet("") # Clear local UI stylesheet to use global
-
-
-        self.btn_login = getattr(self.ui, "btnLogin", None)
-        self.btn_logout = getattr(self.ui, "btnLogout", None)
-
-        if self.btn_login:
-            self.btn_login.setStyleSheet("")
-        if self.btn_logout:
-            self.btn_logout.setStyleSheet("")
-
-        # Nếu UI không còn nút đăng nhập thì cho phép dùng chức năng luôn
-        self.auth_required = self.btn_login is not None
-        self.is_logged_in = not self.auth_required
+        self.setWindowTitle("PROCARE - Premium AutoCare System")
+        self.resize(1400, 850)
+        self.auth_required = False
+        self.is_logged_in = True
         self.child_windows = {}
 
-        self.feature_handlers = {
-            "btn_lichhen_tiepnhan": self.open_appointment_module,
-            "btn_banhang_thanhtoan": self.open_pos_module,
-            "btn_crm_khachhang": self.open_crm_module,
-            "btn_kho_vattu": self.open_inventory_module,
-            "btn_nhansu_nangsuat": self.open_staff_module,
-            "btn_customer_care": self.open_customer_care_module,
-            "btn_baocao_thongke": self.open_report_module,
-            "btn_hethong_caidat": self.open_settings_module,
-        }
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        self._setup_signals()
-        self._update_auth_ui()
-        self.statusBar().showMessage("Sẵn sàng.")
+        # Build Sidebar
+        self.sidebar = QFrame()
+        self.sidebar.setObjectName("sidebar")
+        self.sidebar.setFixedWidth(280)
+        self.sidebar.setStyleSheet("""
+            #sidebar {
+                background-color: #ffffff;
+                border-right: 1px solid #e2e8f0;
+            }
+        """)
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(20, 35, 20, 30)
 
-        # Badge polling: hiển thị số đơn pending trên nút lịch hẹn
+        brand_lbl = QLabel("ProCare")
+        brand_lbl.setStyleSheet("color: #10b981; font-size: 28pt; font-weight: 900;")
+        brand_lbl.setAlignment(Qt.AlignCenter)
+        sidebar_layout.addWidget(brand_lbl)
+        
+        sub_lbl = QLabel("HỆ THỐNG AUTOCARE")
+        sub_lbl.setStyleSheet("color: #64748b; font-size: 10pt; font-weight: bold;")
+        sub_lbl.setAlignment(Qt.AlignCenter)
+        sidebar_layout.addWidget(sub_lbl)
+        sidebar_layout.addSpacing(50)
+
+        # Nav Buttons
+        self.nav_buttons = []
+        self._add_nav_button(sidebar_layout, "📊  TỔNG QUAN", self.show_dashboard)
+        self._add_nav_button(sidebar_layout, "📅  ĐẶT LỊCH WEB", self.show_web_bookings)
+        self._add_nav_button(sidebar_layout, "👥  KHÁCH HÀNG (CRM)", self.show_crm)
+        self._add_nav_button(sidebar_layout, "📦  KHO & VẬT TƯ", self.show_kho_vattu)
+        self._add_nav_button(sidebar_layout, "📈  BÁO CÁO THỐNG KÊ", self.show_baocao)
+        self._add_nav_button(sidebar_layout, "💰  BÁN HÀNG & POS", self.show_pos)
+        self._add_nav_button(sidebar_layout, "⚙️  CÀI ĐẶT HỆ THỐNG", self.show_settings)
+        
+        sidebar_layout.addStretch()
+        
+        logout_btn = QPushButton("ĐĂNG XUẤT")
+        logout_btn.setObjectName("btnLogout")
+        logout_btn.setFixedHeight(45)
+        logout_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                color: #ef4444;
+                font-weight: bold;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #fef2f2;
+                border: 1px solid #fca5a5;
+                color: #ef4444;
+            }
+        """)
+        sidebar_layout.addWidget(logout_btn)
+
+        # Build Stack
+        self.stack = QStackedWidget()
+        self.stack.setStyleSheet("background-color: #f1f5f9;")
+        
+        # Page 0: Dashboard Placeholder
+        self.page_dash = QWidget()
+        self.dash_lay = QVBoxLayout(self.page_dash)
+        self.dash_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_dash)
+
+        # Page 1: Web Bookings
+        self.page_web = QWidget()
+        self.web_lay = QVBoxLayout(self.page_web)
+        self.web_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_web)
+        
+        # Page 2: CRM
+        self.page_crm = QWidget()
+        self.crm_lay = QVBoxLayout(self.page_crm)
+        self.crm_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_crm)
+
+        # Page 3: Kho Vat Tu
+        self.page_kho = QWidget()
+        self.kho_lay = QVBoxLayout(self.page_kho)
+        self.kho_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_kho)
+
+        # Page 4: Bao Cao
+        self.page_baocao = QWidget()
+        self.baocao_lay = QVBoxLayout(self.page_baocao)
+        self.baocao_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_baocao)
+
+        # Page 5: POS
+        self.page_pos = QWidget()
+        self.pos_lay = QVBoxLayout(self.page_pos)
+        self.pos_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_pos)
+
+        # Page 6: Settings
+        self.page_set = QWidget()
+        self.set_lay = QVBoxLayout(self.page_set)
+        self.set_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_set)
+        
+        # Page N: Generic Placeholder
+        self.page_placeholder = QWidget()
+        self.place_lay = QVBoxLayout(self.page_placeholder)
+        self.lbl_place = QLabel("MODULE")
+        self.lbl_place.setStyleSheet("color: #64748b; font-size: 22pt; font-weight: bold;")
+        self.place_lay.addWidget(self.lbl_place, alignment=Qt.AlignCenter)
+        self.stack.addWidget(self.page_placeholder)
+
+        # --- Build Content Area ---
+        self.content_area = QWidget()
+        content_layout = QVBoxLayout(self.content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        # Unified Header Bar
+        self.header_bar = QFrame()
+        self.header_bar.setObjectName("topHeaderBar")
+        self.header_bar.setFixedHeight(80)
+        h_layout = QHBoxLayout(self.header_bar)
+        h_layout.setContentsMargins(35, 0, 35, 0)
+        self.lbl_page_title = QLabel("Bảng Tổng Quan")
+        self.lbl_page_title.setObjectName("lblPageTitle")
+        h_layout.addWidget(self.lbl_page_title)
+        h_layout.addStretch()
+        status_box = QLabel("Admin | Trực tuyến")
+        status_box.setStyleSheet("background: #f1f5f9; color: #64748b; font-weight: bold; padding: 8px 18px; border-radius: 20px;")
+        h_layout.addWidget(status_box)
+
+        content_layout.addWidget(self.header_bar)
+        content_layout.addWidget(self.stack)
+
+        main_layout.addWidget(self.sidebar)
+        main_layout.addWidget(self.content_area)
+
+        # Init modules
+        self._init_modules()
+
+        # Set default
+        self.show_dashboard()
+
+        # Badge polling
         self._badge_timer = QTimer(self)
         self._badge_timer.timeout.connect(self._update_badge)
-        self._badge_timer.start(6000)   # 6 giây
-        self._update_badge()            # Lần đầu ngay lập tức
+        self._badge_timer.start(5000)
+        self._update_badge()
 
-    def _setup_signals(self):
-        if self.btn_login is not None:
-            self.btn_login.clicked.connect(self.handle_login)
-        if self.btn_logout is not None:
-            self.btn_logout.clicked.connect(self.handle_logout)
+    def _add_nav_button(self, layout, text, callback):
+        btn = QPushButton(text)
+        btn.setProperty("navButton", "true")
+        btn.setCheckable(True)
+        btn.setFixedHeight(50)
+        btn.clicked.connect(callback)
+        self.nav_buttons.append(btn)
+        layout.addWidget(btn)
+        return btn
 
-        for button_name, handler in self.feature_handlers.items():
-            button = getattr(self.ui, button_name, None)
-            if button is not None:
-                button.clicked.connect(handler)
+    def _reset_nav(self):
+        for b in self.nav_buttons:
+            b.setChecked(False)
 
-    def _update_auth_ui(self):
-        if self.btn_login is not None:
-            self.btn_login.setEnabled(not self.is_logged_in)
-        if self.btn_logout is not None:
-            self.btn_logout.setEnabled(self.is_logged_in)
+    def _init_modules(self):
+        # Setup Dashboard
+        if DashboardWidget:
+            self.dashboard_mod = DashboardWidget()
+            try: self.dashboard_mod.setWindowFlags(Qt.Widget)
+            except: pass
+            self.dash_lay.addWidget(self.dashboard_mod)
 
-        if not self.auth_required:
-            self.statusBar().showMessage("Che do khong yeu cau dang nhap.")
-        elif self.is_logged_in:
-            self.statusBar().showMessage("Dang nhap thanh cong. Ban co the su dung cac chuc nang.")
+        # Setup CRM
+        if CustomerManagerWidget:
+            self.crm = CustomerManagerWidget()
+            try:
+                self.crm.setWindowFlags(Qt.Widget)
+            except:
+                pass
+            self.crm_lay.addWidget(self.crm)
+        
+        # Setup Web Bookings
+        if WEB_BOOKINGS_AVAILABLE:
+            self.web = WebBookingsWidget(crm_widget=getattr(self, 'crm', None))
+            try:
+                self.web.setWindowFlags(Qt.Widget)
+            except:
+                pass
+            self.web_lay.addWidget(self.web)
+
+        # Setup Kho Vat Tu
+        if KhoVatTuUI:
+            self.kho = KhoVatTuUI()
+            try:
+                self.kho.setWindowFlags(Qt.Widget)
+            except:
+                pass
+            self.kho_lay.addWidget(self.kho)
+
+        # Setup Bao Cao
+        if BaoCaoWindow:
+            self.baocao = BaoCaoWindow()
+            try:
+                self.baocao.setWindowFlags(Qt.Widget)
+            except:
+                pass
+            self.baocao_lay.addWidget(self.baocao)
+
+        # Setup POS
+        if POSWidget:
+            self.pos_mod = POSWidget()
+            try: self.pos_mod.setWindowFlags(Qt.Widget)
+            except: pass
+            self.pos_lay.addWidget(self.pos_mod)
+
+        # Setup Settings
+        if SettingsWidget:
+            self.settings_mod = SettingsWidget()
+            try: self.settings_mod.setWindowFlags(Qt.Widget)
+            except: pass
+            self.set_lay.addWidget(self.settings_mod)
+
+
+    def show_dashboard(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 0: self.nav_buttons[0].setChecked(True)
+        self.lbl_page_title.setText("Bảng Tổng Quan")
+        self.stack.setCurrentWidget(self.page_dash)
+
+    def show_web_bookings(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 1: self.nav_buttons[1].setChecked(True)
+        self.lbl_page_title.setText("Đặt Lịch Trực Tuyến")
+        if WEB_BOOKINGS_AVAILABLE:
+            self.stack.setCurrentWidget(self.page_web)
         else:
-            self.statusBar().showMessage("Chua dang nhap. Vui long dang nhap de su dung day du chuc nang.")
+            self.show_placeholder("Không tìm thấy module Đặt Lịch Web")
 
-    def _require_login(self, feature_label):
-        if not self.auth_required:
-            return True
-        if self.is_logged_in:
-            return True
+    def show_crm(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 2: self.nav_buttons[2].setChecked(True)
+        self.lbl_page_title.setText("Quản Lý Khách Hàng")
+        if CustomerManagerWidget:
+            self.stack.setCurrentWidget(self.page_crm)
+        else:
+            self.show_placeholder("Không tìm thấy module CRM")
 
-        QMessageBox.warning(
-            self,
-            "Yeu cau dang nhap",
-            f"Vui long dang nhap truoc khi mo chuc nang: {feature_label}.",
-        )
-        return False
+    def show_kho_vattu(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 3: self.nav_buttons[3].setChecked(True)
+        self.lbl_page_title.setText("Kho & Vật Tư")
+        if KhoVatTuUI:
+            self.stack.setCurrentWidget(self.page_kho)
+        else:
+            self.show_placeholder("Không tìm thấy module KHO & VẬT TƯ")
 
-    def _show_placeholder(self, feature_label):
-        if not self._require_login(feature_label):
-            return
-        QMessageBox.information(
-            self,
-            "Thong bao",
-            f"Chuc nang '{feature_label}' dang duoc phat trien.\n"
-            "Ban co the mo CRM de thu nghiem luong quan ly khach hang.",
-        )
+    def show_baocao(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 4: self.nav_buttons[4].setChecked(True)
+        self.lbl_page_title.setText("Báo Cáo & Thống Kê")
+        if BaoCaoWindow:
+            self.stack.setCurrentWidget(self.page_baocao)
+        else:
+            self.show_placeholder("Không tìm thấy module BÁO CÁO THỐNG KÊ")
 
-    def handle_login(self):
-        if not self.auth_required:
-            return
-        if self.is_logged_in:
-            return
-        self.is_logged_in = True
-        self._update_auth_ui()
-        QMessageBox.information(self, "Dang nhap", "Dang nhap thanh cong.")
+    def show_pos(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 5: self.nav_buttons[5].setChecked(True)
+        self.lbl_page_title.setText("Bán Hàng & POS")
+        if POSWidget:
+            self.stack.setCurrentWidget(self.page_pos)
+        else:
+            self.show_placeholder("Không tìm thấy module BÁN HÀNG & POS")
 
-    def handle_logout(self):
-        if not self.auth_required:
-            QMessageBox.information(self, "Dang xuat", "UI hien tai khong su dung che do dang nhap.")
-            return
-        if not self.is_logged_in:
-            return
+    def show_settings(self):
+        self._reset_nav()
+        if len(self.nav_buttons) > 6: self.nav_buttons[6].setChecked(True)
+        self.lbl_page_title.setText("Cài Đặt Hệ Thống")
+        if SettingsWidget:
+            self.stack.setCurrentWidget(self.page_set)
+        else:
+            self.show_placeholder("Không tìm thấy module CÀI ĐẶT HỆ THỐNG")
 
-        reply = QMessageBox.question(
-            self,
-            "Dang xuat",
-            "Ban co chac chan muon dang xuat?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        self.is_logged_in = False
-        self._update_auth_ui()
-        QMessageBox.information(self, "Dang xuat", "Da dang xuat thanh cong.")
+    def show_placeholder(self, title):
+        self._reset_nav()
+        for b in self.nav_buttons:
+            if title in b.text():
+                b.setChecked(True)
+                break
+        self.lbl_place.setText(f"MODULE ĐANG PHÁT TRIỂN:\n\n{title}")
+        self.stack.setCurrentWidget(self.page_placeholder)
 
     def _update_badge(self):
-        """Cập nhật badge số đơn web đang pending trên nút trang chủ."""
         if not WEB_BOOKINGS_AVAILABLE:
             return
-        btn = getattr(self.ui, "btn_lichhen_tiepnhan", None)
-        if btn is None:
-            return
         try:
+            from modules.web_bookings import _http_get
             result = _http_get("http://localhost:8765/api/bookings/count/pending")
             if result and isinstance(result, dict):
                 count = result.get("count", 0)
+                btn = self.nav_buttons[1]  # Web Bookings button
+                current_text = btn.text()
+                base_text = "   ĐẶT LỊCH WEB"
                 if count > 0:
-                    btn.setText(f"Mở chức năng  🔔{count}")
-                    btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: #f59e0b;
-                            color: #0f172a;
-                            font-weight: bold;
-                            border-radius: 10px;
-                            padding: 10px 20px;
-                            font-size: 11.5pt;
-                        }
-                        QPushButton:hover { background-color: #d97706; }
-                    """)
+                    btn.setText(f"{base_text}  ({count})")
+                    btn.setStyleSheet(btn.styleSheet().replace("color: #94a3b8;", "color: #f59e0b;"))
                 else:
-                    btn.setText("Mở chức năng")
-                    btn.setStyleSheet("")
+                    btn.setText(base_text)
+                    btn.setStyleSheet(btn.styleSheet().replace("color: #f59e0b;", "color: #94a3b8;"))
         except Exception:
             pass
 
-    def open_appointment_module(self):
-        feature_label = "Lịch hẹn & Đặt lịch Online"
-        if not self._require_login(feature_label):
-            return
-
-        if not WEB_BOOKINGS_AVAILABLE:
-            QMessageBox.critical(
-                self, "Lỗi module",
-                "Không thể tải module Đặt lịch.\nKiểm tra file modules/web_bookings.py."
-            )
-            return
-
-        window = self.child_windows.get("web_bookings")
-        crm_widget = self.child_windows.get("crm")
-
-        if window is None:
-            window = WebBookingsWidget(crm_widget=crm_widget)
-            window.setWindowTitle("🌐 Đặt lịch Online từ Website")
-            self.child_windows["web_bookings"] = window
-
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        self.statusBar().showMessage("Đã mở module Lịch hẹn & Đặt lịch Online.")
-
-    def open_pos_module(self):
-        self._show_placeholder("Ban hang & Thanh toan (POS)")
-
-    def open_crm_module(self):
-        feature_label = "Quan ly Khach hang (CRM)"
-        if not self._require_login(feature_label):
-            return
-
-        if CustomerManagerWidget is None:
-            QMessageBox.critical(
-                self,
-                "Loi module",
-                "Khong the tai module CRM.\nKiem tra lai file modules/qlkhachhang.py.",
-            )
-            return
-
-        window = self.child_windows.get("crm")
-        if window is None:
-            window = CustomerManagerWidget()
-            window.setWindowTitle("CRM - Quan ly khach hang")
-            self.child_windows["crm"] = window
-
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        self.statusBar().showMessage("Da mo module CRM.")
-
-    def open_inventory_module(self):
-        feature_label = "Quan ly Kho & Vat tu"
-        if not self._require_login(feature_label):
-            return
-        try:
-            from ui.compiled.ui_kho_vattu import KhoVatTuUI
-        except ImportError:
-            QMessageBox.information(
-                self,
-                "Thong bao",
-                f"Chuc nang '{feature_label}' dang duoc phat trien.\n"
-                "Ban co the mo CRM de thu nghiem luong quan ly khach hang.",
-            )
-            return
-
-        window = self.child_windows.get("kho")
-        if window is None:
-            window = KhoVatTuUI()
-            self.child_windows["kho"] = window
-
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        self.statusBar().showMessage("Da mo module Kho & Vat tu.")
-
-    def open_staff_module(self):
-        self._show_placeholder("Quan ly Nhan su & Nang suat")
-
-    def open_customer_care_module(self):
-        self._show_placeholder("Cham soc KH & Marketing")
-
-    def open_report_module(self):
-        global BaoCaoWindow
-        feature_label = "Bao cao & Thong ke"
-        if not self._require_login(feature_label):
-            return
-
-        if BaoCaoWindow is None:
-            try:
-                from modules import baocao_thongke as baocao_module
-                candidate_names = (
-                    "BaoCaoWindow",
-                    "BaoCaoThongKeWindow",
-                    "ReportWindow",
-                )
-                for name in candidate_names:
-                    candidate = getattr(baocao_module, name, None)
-                    if inspect.isclass(candidate) and issubclass(candidate, QWidget):
-                        BaoCaoWindow = candidate
-                        break
-            except ModuleNotFoundError as exc:
-                QMessageBox.critical(
-                    self,
-                    "Thieu thu vien",
-                    f"Khong mo duoc Bao cao & Thong ke do thieu thu vien: {exc.name}\n"
-                    f"Hay cai dat bang lenh: pip install {exc.name}",
-                )
-                return
-            except Exception as exc:
-                QMessageBox.critical(
-                    self,
-                    "Loi module",
-                    f"Khong the tai module Bao cao & Thong ke.\nChi tiet: {exc}",
-                )
-                return
-
-        if BaoCaoWindow is None:
-            QMessageBox.information(
-                self,
-                "Thong bao",
-                "Module Bao cao & Thong ke da duoc nap, nhung chua co class giao dien.\n"
-                "Vui long tao class QWidget (vi du: BaoCaoWindow) trong modules/baocao_thongke.py.",
-            )
-            return
-
-        window = self.child_windows.get("report")
-        if window is None:
-            window = BaoCaoWindow()
-            window.setWindowTitle("Bao cao & Thong ke")
-            self.child_windows["report"] = window
-
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        self.statusBar().showMessage("Da mo module Bao cao & Thong ke.")
-
-    def open_settings_module(self):
-        self._show_placeholder("Quan ly He thong & Cai dat")
-
 
 app_style = """
-/* Tối ưu hóa UI theo phong cách Dark Mode Hiện đại cao cấp (Modern Dark Premium Mode) */
-QMainWindow, QWidget#centralwidget {
-    background-color: #0b1120; /* Nền tối đậm, cực sâu (Ultra-deep slate) */
+/* ========================================================
+   PROCARE - Ultra-Premium Modern UI (Emerald Ocean)
+   ======================================================== */
+
+QMainWindow {
+    background-color: #f8fafc;
 }
+
 QWidget {
-    font-family: "Segoe UI", "Inter", sans-serif;
-    color: #f8fafc;
-    font-size: 10.5pt;
+    font-family: "Geist Sans", "Inter", "Helvetica Neue", "Arial", sans-serif;
+    color: #1e293b;
+    font-size: 11pt;
 }
 
-/* Vùng Header thanh lịch */
-#headerFrame {
-    background-color: rgba(30, 41, 59, 0.7); /* Kính bóng mờ (Glassmorphism effect) */
-    border: 1px solid #334155;
-    border-radius: 16px;
-    padding: 4px;
+/* Sidebar Styling */
+#sidebar {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8fafc);
+    border-right: 1px solid #e2e8f0;
 }
 
-#headerFrame:hover {
-    border-color: #475569;
+/* Nav Buttons Upgrade */
+QPushButton[navButton="true"] {
+    background-color: transparent;
+    color: #64748b;
+    border: none;
+    text-align: left;
+    padding: 12px 20px;
+    font-size: 11pt;
+    font-weight: 600;
+    border-radius: 10px;
+    margin: 2px 0;
 }
 
-/* Label Logo cực bắt mắt */
-#logoLabel {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #38bdf8, stop:1 #818cf8);
+QPushButton[navButton="true"]:hover {
+    background-color: #f1f5f9;
+    color: #0ea5e9;
+}
+
+QPushButton[navButton="true"]:checked {
+    background-color: #0ea5e9;
     color: #ffffff;
-    border-radius: 28px;
-    font-size: 24px;
     font-weight: 800;
 }
 
-/* Tên ứng dụng nổi bật */
-#appName {
-    color: #f8fafc;
-    font-size: 24px;
+/* Unified Top Header */
+#topHeaderBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#lblPageTitle {
+    color: #0f172a;
+    font-size: 20pt;
     font-weight: 900;
-    border: none;
-    letter-spacing: 1px;
 }
 
-#appDesc {
-    color: #94a3b8;
-    font-size: 11.5pt;
-    border: none;
-}
-
-/* Các QFrame (Thẻ Card) */
-QFrame {
-    background-color: #1e293b;
-    border: 1px solid #334155;
+/* Global Card & Input Styling */
+QFrame#cardFrame, QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
 }
 
-/* Hiệu ứng nổi bật khi Hover vào Card */
-QFrame:hover {
-    border: 1px solid #38bdf8;
-    background-color: #26334a;
-}
-
-/* Nhãn Text không bị ghi đè màu nền */
-QLabel {
-    border: none;
-    background: transparent;
-}
-
-/* Tiêu đề Chức năng (Card Title) */
-QLabel[objectName^="lblTitle"] {
-    color: #f1f5f9;
-    font-size: 15pt;
-    font-weight: bold;
-}
-
-/* Mô tả Chức năng (Card Description) */
-QLabel[objectName^="lblDesc"] {
-    color: #94a3b8;
-    font-size: 11pt;
-    line-height: 1.5;
-}
-
-/* Nút bấm (Button) thiết kế cao cấp, bo góc thanh lịch */
 QPushButton {
-    background-color: #2563eb;
-    color: #ffffff;
-    border: none;
+    background-color: #0ea5e9;
+    color: white;
     border-radius: 10px;
-    font-weight: bold;
     padding: 10px 20px;
-    font-size: 11.5pt;
+    font-weight: 700;
 }
 
 QPushButton:hover {
-    background-color: #3b82f6;
+    background-color: #0284c7;
 }
 
-QPushButton:pressed {
-    background-color: #1d4ed8;
-}
-
-/* Nút Đăng xuất riêng biệt */
-#btnLogout, #btn_logout {
-    background-color: rgba(239, 68, 68, 0.85); /* Đỏ nổi bật */
-    color: white;
-    border-radius: 8px;
-    font-weight: bold;
-}
-#btnLogout:hover, #btn_logout:hover {
-    background-color: #f87171;
-}
-#btnLogout:pressed, #btn_logout:pressed {
-    background-color: #b91c1c;
-}
-
-/* Dòng trạng thái (Status Bar) */
-QStatusBar {
-    background-color: #0b1120;
-    color: #94a3b8;
-    border-top: 1px solid #1e293b;
-}
-
-/* Footer chữ rõ ràng nhưng nhẹ nhàng */
-#footerText {
-    color: #64748b;
-    font-size: 10.5pt;
-    font-weight: 500;
-}
-
-/* Bảng dữ liệu CRM & Kho: Glass + Flat mix */
 QTableWidget, QTableView {
-    background-color: #1e293b;
-    border: 1px solid #334155;
     border-radius: 12px;
-    color: #f1f5f9;
-    gridline-color: #334155;
-    selection-background-color: #38bdf8;
-    selection-color: #0f172a;
-    alternate-background-color: #223044;
+    border: 1px solid #e2e8f0;
+    gridline-color: #f1f5f9;
 }
-QTableView::item {
-    padding: 4px;
-}
+
 QHeaderView::section {
-    background-color: #0f172a;
-    color: #94a3b8;
-    padding: 10px;
+    background-color: #f8fafc;
     border: none;
-    border-right: 1px solid #334155;
-    border-bottom: 2px solid #334155;
-    font-weight: bold;
-    font-size: 11pt;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 12px;
+    font-weight: 800;
+    color: #475569;
 }
 
-/* Các Ô nhập liệu (Input/Combo boxes) thiết kế phẳng */
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QTextEdit {
-    background-color: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 8px;
-    color: #f1f5f9;
-    font-size: 11pt;
+/* ================= TABS ================= */
+QTabWidget::pane {
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    border-radius: 12px;
 }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QTextEdit:focus {
-    border: 1px solid #38bdf8;
-    background-color: #1e293b;
+QTabBar::tab {
+    background-color: #f1f5f9;
+    color: #64748b;
+    padding: 12px 30px;
+    font-weight: 700;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    margin-right: 5px;
+}
+QTabBar::tab:selected {
+    background-color: #ffffff;
+    color: #0ea5e9;
 }
 
-/* Danh sách cuộn mượt mà (Modern Scrollbar) */
+/* ================= INPUTS ================= */
+QLineEdit, QComboBox, QDateEdit, QTextEdit {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 15px;
+    color: #1e293b;
+}
+QLineEdit:focus, QComboBox:focus, QDateEdit:focus {
+    border: 2px solid #0ea5e9;
+    background-color: #f0f9ff;
+}
+
+/* ================= BUTTONS ================= */
+#btn_logout, #btnLogout, #btn_xoaKH {
+    background-color: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+}
+#btn_logout:hover, #btnLogout:hover, #btn_xoaKH:hover {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* ================= SCROLLBARS ================= */
 QScrollBar:vertical {
     border: none;
-    background: #0f172a;
-    width: 6px;
-    margin: 0px;
-    border-radius: 3px;
+    background: #f8fafc;
+    width: 10px;
+    border-radius: 5px;
 }
 QScrollBar::handle:vertical {
-    background: #475569;
-    min-height: 25px;
-    border-radius: 3px;
+    background: #cbd5e1;
+    border-radius: 5px;
+    min-height: 20px;
 }
 QScrollBar::handle:vertical:hover {
     background: #94a3b8;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    border: none;
-    background: none;
-}
-QScrollBar:horizontal {
-    border: none;
-    background: #0f172a;
-    height: 6px;
-    margin: 0px;
-    border-radius: 3px;
-}
-QScrollBar::handle:horizontal {
-    background: #475569;
-    min-width: 25px;
-    border-radius: 3px;
-}
-QScrollBar::handle:horizontal:hover {
-    background: #94a3b8;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    border: none;
-    background: none;
-}
+
+
 """
 
 def main():

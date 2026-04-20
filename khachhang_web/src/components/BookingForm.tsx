@@ -74,46 +74,48 @@ export const BookingForm: React.FC = () => {
   };
 
   const inputClass =
-    'w-full bg-black/40 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/60 transition-all duration-300 backdrop-blur-sm text-sm';
-  const labelClass = 'block text-gray-400 text-xs font-medium mb-1.5 uppercase tracking-wider';
+    'w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-foreground placeholder-foreground/50 focus:outline-none focus:border-cyan-500/60 transition-all duration-300 backdrop-blur-sm text-sm';
+  const labelClass = 'block text-foreground/70 text-xs font-medium mb-1.5 uppercase tracking-wider';
 
   return (
     <section id="booking" className="relative z-10 w-full py-24 px-6 md:px-12 lg:px-16">
       {/* Section heading */}
       <div className="max-w-3xl mx-auto text-center mb-14">
-        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-gray-400 border border-white/10 rounded-full px-4 py-2 mb-6 liquid-glass">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-foreground/70 border border-border rounded-full px-4 py-2 mb-6 liquid-glass">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse inline-block shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
           Đặt lịch trực tuyến
         </div>
         <h2
-          className="text-4xl md:text-5xl lg:text-6xl font-normal mb-4 text-white"
+          className="text-4xl md:text-5xl lg:text-6xl font-normal mb-4 text-foreground"
           style={{ letterSpacing: '-0.03em' }}
         >
-          Đặt lịch <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">chăm sóc xe</span>
+          Đặt lịch <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">chăm sóc xe</span>
         </h2>
-        <p className="text-gray-400 text-lg">
+        <p className="text-foreground/60 text-lg">
           Điền thông tin bên dưới — đội ngũ chúng tôi sẽ liên hệ xác nhận trong vòng 30 phút.
         </p>
       </div>
 
       {/* Card Form */}
-      <div className="max-w-2xl mx-auto liquid-glass border border-white/10 rounded-2xl p-8 md:p-10">
+      <div className="max-w-2xl mx-auto liquid-glass border border-white/5 rounded-2xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
+        {/* subtle gradient glow behind the form inside the card */}
+        <div className="absolute inset-x-0 -top-40 h-80 bg-cyan-500/10 blur-[100px] pointer-events-none" />
+
         {status === 'success' ? (
-          <div className="text-center py-10">
-            <div className="text-6xl mb-4">🎉</div>
-            <h3 className="text-2xl font-semibold text-white mb-3">Đặt lịch thành công!</h3>
-            <p className="text-gray-400 mb-8">
+          <div className="text-center py-10 relative z-10">
+            <h3 className="text-3xl font-semibold text-foreground mb-3 mt-4">Đặt lịch thành công!</h3>
+            <p className="text-foreground/60 mb-8">
               Chúng tôi đã nhận được yêu cầu của bạn và sẽ liên hệ xác nhận sớm nhất có thể.
             </p>
             <button
               onClick={() => setStatus('idle')}
-              className="bg-white text-black px-8 py-3 rounded-xl font-medium hover:bg-gray-100 transition-colors"
+              className="bg-foreground text-background px-8 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity"
             >
               Đặt lịch tiếp
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
             {/* Row 1: Tên + SĐT */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -161,11 +163,11 @@ export const BookingForm: React.FC = () => {
                   name="dich_vu"
                   value={form.dich_vu}
                   onChange={handleChange}
-                  className={`${inputClass} cursor-pointer`}
+                  className={`${inputClass} cursor-pointer [&>option]:bg-background`}
                 >
-                  <option value="" className="bg-gray-900">Chọn dịch vụ...</option>
+                  <option value="">Chọn dịch vụ...</option>
                   {SERVICES.map(s => (
-                    <option key={s} value={s} className="bg-gray-900">{s}</option>
+                    <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </div>
@@ -210,7 +212,7 @@ export const BookingForm: React.FC = () => {
 
             {/* Error */}
             {status === 'error' && errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-xl px-4 py-3">
                 ⚠️ {errorMsg}
               </div>
             )}
@@ -219,7 +221,7 @@ export const BookingForm: React.FC = () => {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full bg-white text-black font-semibold py-4 rounded-xl text-sm hover:bg-gray-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              className="w-full bg-foreground text-background font-semibold py-4 rounded-xl text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed mt-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]"
             >
               {status === 'loading' ? (
                 <span className="flex items-center justify-center gap-2">
@@ -229,10 +231,10 @@ export const BookingForm: React.FC = () => {
                   </svg>
                   Đang gửi...
                 </span>
-              ) : '🚗  Xác nhận đặt lịch'}
+              ) : 'Xác nhận đặt lịch'}
             </button>
 
-            <p className="text-center text-gray-600 text-xs">
+            <p className="text-center text-foreground/40 text-xs">
               Bằng cách đặt lịch, bạn đồng ý để chúng tôi liên hệ xác nhận qua số điện thoại đã cung cấp.
             </p>
           </form>

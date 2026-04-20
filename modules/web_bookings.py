@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTableWidget, QTableWidgetItem,
     QHeaderView, QMessageBox, QTabWidget, QFrame,
-    QAbstractItemView, QSizePolicy,
+    QSizePolicy, QAbstractItemView
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -64,7 +64,7 @@ class WebBookingsWidget(QWidget):
         self._all_data = []            # Cache tất cả đơn
         self._api_online = False
 
-        self.setWindowTitle("🌐 Đặt lịch từ Web")
+        self.setWindowTitle("ProCare: Web Bookings")
         self.resize(1100, 700)
         self._build_ui()
         self._start_polling()
@@ -79,21 +79,18 @@ class WebBookingsWidget(QWidget):
 
         # ─── Header ───
         header = QHBoxLayout()
-        title = QLabel("🌐  Đặt lịch Online từ Website")
-        title_font = QFont()
-        title_font.setPointSize(16)
-        title_font.setBold(True)
-        title.setFont(title_font)
+        title = QLabel("DANH SÁCH ĐẶT LỊCH TRỰC TUYẾN")
+        title.setStyleSheet("color: #0f172a; font-size: 18pt; font-weight: 800;")
         header.addWidget(title)
 
         header.addStretch()
 
-        self.lbl_status = QLabel("⚪ Đang kết nối API...")
-        self.lbl_status.setStyleSheet("color: #94a3b8; font-size: 11pt;")
+        self.lbl_status = QLabel("CONNECTING...")
+        self.lbl_status.setStyleSheet("color: #64748b; font-size: 11pt; font-weight: bold; letter-spacing: 1px;")
         header.addWidget(self.lbl_status)
 
-        self.btn_refresh = QPushButton("🔄 Làm mới")
-        self.btn_refresh.setFixedHeight(36)
+        self.btn_refresh = QPushButton("LÀM MỚI")
+        self.btn_refresh.setFixedWidth(120)
         self.btn_refresh.clicked.connect(self._do_refresh)
         header.addWidget(self.btn_refresh)
 
@@ -107,9 +104,10 @@ class WebBookingsWidget(QWidget):
 
         # ─── Stat bar ───
         stat_bar = QHBoxLayout()
-        self.lbl_pending_count = self._stat_card("Chờ xử lý", "0", "#f59e0b")
-        self.lbl_accepted_count = self._stat_card("Đã tiếp nhận", "0", "#22c55e")
-        self.lbl_rejected_count = self._stat_card("Đã từ chối", "0", "#ef4444")
+        stat_bar.setSpacing(20)
+        self.lbl_pending_count = self._stat_card("Chờ tiếp nhận", "0", "#f59e0b")
+        self.lbl_accepted_count = self._stat_card("Đã xử lý", "0", "#10b981")
+        self.lbl_rejected_count = self._stat_card("Đã hủy", "0", "#ef4444")
         stat_bar.addWidget(self.lbl_pending_count[2])
         stat_bar.addWidget(self.lbl_accepted_count[2])
         stat_bar.addWidget(self.lbl_rejected_count[2])
@@ -123,27 +121,37 @@ class WebBookingsWidget(QWidget):
         # Tab 1: Pending
         self.tab_pending = QWidget()
         self._build_pending_tab()
-        self.tabs.addTab(self.tab_pending, "📥 Chờ xử lý")
+        self.tabs.addTab(self.tab_pending, "CHỜ XỬ LÝ")
 
         # Tab 2: All history
         self.tab_all = QWidget()
         self._build_all_tab()
-        self.tabs.addTab(self.tab_all, "📋 Tất cả đơn")
+        self.tabs.addTab(self.tab_all, "TẤT CẢ ĐƠN")
 
         root.addWidget(self.tabs)
 
     def _stat_card(self, label: str, value: str, color: str):
         frame = QFrame()
-        frame.setFixedSize(180, 72)
-        frame.setStyleSheet(f"QFrame {{ border-radius: 12px; border: 1.5px solid {color}33; }}")
+        frame.setFixedSize(220, 100)
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                border-left: 5px solid {color};
+            }}
+        """)
         lay = QVBoxLayout(frame)
-        lay.setContentsMargins(14, 8, 14, 8)
+        lay.setContentsMargins(20, 12, 20, 12)
+        
         lbl_val = QLabel(value)
-        lbl_val.setStyleSheet(f"color: {color}; font-size: 24pt; font-weight: 900; border: none;")
-        lbl_lbl = QLabel(label)
-        lbl_lbl.setStyleSheet("color: #94a3b8; font-size: 10pt; border: none;")
-        lay.addWidget(lbl_val)
+        lbl_val.setStyleSheet(f"color: #0f172a; font-size: 22pt; font-weight: 900; border: none;")
+        
+        lbl_lbl = QLabel(label.upper())
+        lbl_lbl.setStyleSheet(f"color: {color}; font-size: 9pt; font-weight: 800; border: none;")
+        
         lay.addWidget(lbl_lbl)
+        lay.addWidget(lbl_val)
         return lbl_val, lbl_lbl, frame
 
     def _build_pending_tab(self):
@@ -151,34 +159,46 @@ class WebBookingsWidget(QWidget):
         lay.setContentsMargins(0, 10, 0, 0)
         lay.setSpacing(8)
 
-        info = QLabel("Các đơn đặt lịch mới từ website đang chờ nhân viên xử lý. Bấm ✅ Tiếp nhận để chuyển khách hàng vào CRM.")
-        info.setStyleSheet("color: #94a3b8; font-size: 10.5pt;")
+        info = QLabel("Các đơn đặt lịch mới từ website đang chờ nhân viên xử lý. Bấm [TIẾP NHẬN] để chuyển dữ liệu khách hàng vào hệ thống CRM.")
+        info.setStyleSheet("color: #475569; font-size: 10.5pt;")
         info.setWordWrap(True)
         lay.addWidget(info)
 
-        self.tbl_pending = self._make_table([
-            "ID", "Họ tên", "SĐT", "Biển số", "Dịch vụ", "Ngày hẹn", "Giờ hẹn", "Ghi chú", "Thời gian gửi"
-        ])
+        self.tbl_pending = QTableWidget()
+        self.tbl_pending.setColumnCount(8)
+        self.tbl_pending.setHorizontalHeaderLabels(["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GHI CHÚ", "THỜI GIAN ĐẶT"])
+        header = self.tbl_pending.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.tbl_pending.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_pending.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tbl_pending.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tbl_pending.verticalHeader().setVisible(False)
+        self.tbl_pending.setAlternatingRowColors(True)
         lay.addWidget(self.tbl_pending)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        self.btn_accept = QPushButton("✅  Tiếp nhận & chuyển sang CRM")
+        self.btn_accept = QPushButton("TIẾP NHẬN VÀO CRM")
+        self.btn_accept.setFixedWidth(220)
         self.btn_accept.setFixedHeight(40)
         self.btn_accept.setStyleSheet("""
-            QPushButton { background-color: #22c55e; color: white; font-weight: bold; border-radius: 8px; font-size: 12pt; }
-            QPushButton:hover { background-color: #16a34a; }
-            QPushButton:pressed { background-color: #15803d; }
+            QPushButton { background-color: #10b981; color: #ffffff; font-weight: bold; border-radius: 6px; font-size: 11pt; border: none; }
+            QPushButton:hover { background-color: #34d399; }
+            QPushButton:pressed { background-color: #059669; }
         """)
         self.btn_accept.clicked.connect(self._accept_selected)
 
-        self.btn_reject = QPushButton("❌  Từ chối")
+        self.btn_reject = QPushButton("TỪ CHỐI")
+        self.btn_reject.setFixedWidth(120)
         self.btn_reject.setFixedHeight(40)
         self.btn_reject.setStyleSheet("""
-            QPushButton { background-color: #ef4444; color: white; font-weight: bold; border-radius: 8px; font-size: 12pt; }
-            QPushButton:hover { background-color: #dc2626; }
-            QPushButton:pressed { background-color: #b91c1c; }
+            QPushButton { background-color: #f8fafc; color: #ef4444; border: 1px solid #e2e8f0; font-weight: bold; border-radius: 6px; font-size: 11pt; }
+            QPushButton:hover { background-color: #fef2f2; border: 1px solid #fca5a5; }
+            QPushButton:pressed { background-color: #fee2e2; }
         """)
         self.btn_reject.clicked.connect(self._reject_selected)
 
@@ -190,9 +210,20 @@ class WebBookingsWidget(QWidget):
     def _build_all_tab(self):
         lay = QVBoxLayout(self.tab_all)
         lay.setContentsMargins(0, 10, 0, 0)
-        self.tbl_all = self._make_table([
-            "ID", "Họ tên", "SĐT", "Biển số", "Dịch vụ", "Ngày hẹn", "Giờ hẹn", "Ghi chú", "Trạng thái", "Thời gian"
-        ])
+        self.tbl_all = QTableWidget()
+        self.tbl_all.setColumnCount(9)
+        self.tbl_all.setHorizontalHeaderLabels(["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GHI CHÚ", "THỜI GIAN ĐẶT", "TRẠNG THÁI"])
+        header2 = self.tbl_all.horizontalHeader()
+        header2.setSectionResizeMode(QHeaderView.Stretch)
+        header2.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header2.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header2.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header2.setSectionResizeMode(8, QHeaderView.ResizeToContents)
+        self.tbl_all.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_all.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tbl_all.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tbl_all.verticalHeader().setVisible(False)
+        self.tbl_all.setAlternatingRowColors(True)
         lay.addWidget(self.tbl_all)
 
     def _make_table(self, headers: list) -> QTableWidget:
@@ -223,13 +254,13 @@ class WebBookingsWidget(QWidget):
 
         if pending is None:
             self._api_online = False
-            self.lbl_status.setText("🔴 API offline — Chạy server/app.py")
-            self.lbl_status.setStyleSheet("color: #ef4444; font-size: 11pt;")
+            self.lbl_status.setText("API OFFLINE")
+            self.lbl_status.setStyleSheet("color: #ef4444; font-size: 10pt; font-weight: bold;")
             return
 
         self._api_online = True
-        self.lbl_status.setText("🟢 API online — Đang theo dõi real-time")
-        self.lbl_status.setStyleSheet("color: #22c55e; font-size: 11pt;")
+        self.lbl_status.setText("API ONLINE")
+        self.lbl_status.setStyleSheet("color: #10b981; font-size: 10pt; font-weight: bold;")
 
         # Detect đơn mới
         old_ids = {b["id"] for b in self._pending_data}
@@ -279,9 +310,9 @@ class WebBookingsWidget(QWidget):
             "rejected": "#ef4444",
         }
         STATUS_LABEL = {
-            "pending":  "⏳ Chờ xử lý",
-            "accepted": "✅ Đã tiếp nhận",
-            "rejected": "❌ Đã từ chối",
+            "pending":  "CHỜ XỬ LÝ",
+            "accepted": "ĐÃ TIẾP NHẬN",
+            "rejected": "ĐÃ TỪ CHỐI",
         }
         for row, b in enumerate(self._all_data):
             tbl.insertRow(row)
@@ -312,7 +343,7 @@ class WebBookingsWidget(QWidget):
         self.lbl_pending_count[0].setText(str(pending_n))
         self.lbl_accepted_count[0].setText(str(accepted_n))
         self.lbl_rejected_count[0].setText(str(rejected_n))
-        self.tabs.setTabText(0, f"📥 Chờ xử lý ({pending_n})")
+        self.tabs.setTabText(0, f"CHỜ XỬ LÝ ({pending_n})")
 
     # ──────────────────────────────
     # Actions
@@ -395,8 +426,8 @@ class WebBookingsWidget(QWidget):
         if len(new_entries) > 3:
             names += f" và {len(new_entries) - 3} người khác"
         msg = QMessageBox(self)
-        msg.setWindowTitle("🔔 Đặt lịch mới từ Web!")
-        msg.setText(f"Có {len(new_entries)} đơn đặt lịch mới:\n{names}")
+        msg.setWindowTitle("Thông báo hệ thống")
+        msg.setText(f"CÓ {len(new_entries)} ĐƠN ĐẶT LỊCH MỚI:\n{names}")
         msg.setIcon(QMessageBox.Information)
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()

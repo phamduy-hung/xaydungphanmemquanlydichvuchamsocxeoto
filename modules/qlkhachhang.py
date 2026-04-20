@@ -177,15 +177,54 @@ class CustomerManagerWidget(QWidget):
         self.refresh_customer_table()
 
     def _setup_tables(self):
+        # Clear legacy styling
+        self.ui.btn_themKH.setStyleSheet("")
+        self.ui.btn_suaKH.setStyleSheet("")
+        self.ui.btn_xoaKH.setStyleSheet("")
+        self.ui.btn_timkiem.setStyleSheet("")
+        self.ui.txt_search.setStyleSheet("")
+        self.ui.comboBox.setStyleSheet("")
+        self.ui.tbl_customers.setStyleSheet("")
+        self.ui.tbl_history.setStyleSheet("")
+        
+        # Apply premium look to action buttons using the main.py styles
+        self.ui.btn_themKH.setObjectName("btnPrimary") # Will use main skyblue
+        self.ui.btn_suaKH.setObjectName("btnSecondary") # Will use light skyblue border
+        self.ui.btn_timkiem.setObjectName("btnPrimary")
+
+        # Clear legacy minimum sizes
+        self.ui.btn_themKH.setMinimumSize(0, 0)
+        self.ui.btn_suaKH.setMinimumSize(0, 0)
+        self.ui.btn_xoaKH.setMinimumSize(0, 0)
+
+        from PyQt5.QtWidgets import QHeaderView
         customer_table = self.ui.tbl_customers
         customer_table.setSelectionBehavior(customer_table.SelectRows)
         customer_table.setSelectionMode(customer_table.SingleSelection)
         customer_table.setEditTriggers(customer_table.NoEditTriggers)
+        customer_table.verticalHeader().setVisible(False)
+        customer_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        customer_table.setAlternatingRowColors(True)
 
         history_table = self.ui.tbl_history
         history_table.setSelectionBehavior(history_table.SelectRows)
         history_table.setSelectionMode(history_table.SingleSelection)
         history_table.setEditTriggers(history_table.NoEditTriggers)
+        history_table.verticalHeader().setVisible(False)
+        history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        history_table.setAlternatingRowColors(True)
+        
+        # Improve the Right Panel (History) styling
+        self.ui.grp_history.setStyleSheet("""
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding-top: 15px;
+            }
+        """)
+        self.ui.label_2.setStyleSheet("color: #0f172a; font-size: 14pt; font-weight: 800; border: none;")
+        self.ui.label_3.setStyleSheet("color: #64748b; font-size: 10pt; font-weight: bold; border: none;")
 
     def _setup_signals(self):
         self.ui.btn_themKH.clicked.connect(self.open_add_dialog)
