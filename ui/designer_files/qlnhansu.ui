@@ -95,7 +95,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget_qlnhansu">
      <property name="currentIndex">
-      <number>0</number>
+      <number>3</number>
      </property>
      <widget class="QWidget" name="tab_nhanvien_calam">
       <attribute name="title">

@@ -54,6 +54,11 @@ try:
 except Exception:
     ChamSocKhachHangVaMarketingWindow = None
 
+try:
+    from modules.ql_nhan_su import QuanLyNhanVienWidget
+except Exception:
+    QuanLyNhanVienWidget = None
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -105,6 +110,7 @@ class MainWindow(QMainWindow):
         self._add_nav_button(sidebar_layout, "📦  KHO & VẬT TƯ", self.show_kho_vattu)
         self._add_nav_button(sidebar_layout, "📈  BÁO CÁO THỐNG KÊ", self.show_baocao)
         self._add_nav_button(sidebar_layout, "💰  BÁN HÀNG & POS", self.show_pos)
+        self._add_nav_button(sidebar_layout, "💼  QUẢN LÝ NHÂN SỰ", self.show_nhan_su)
         self._add_nav_button(sidebar_layout, "⚙️  CÀI ĐẶT HỆ THỐNG", self.show_settings)
         
         sidebar_layout.addStretch()
@@ -160,6 +166,12 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.page_pos)
 
         # Page 7: Settings
+        self.page_nhansu = QWidget()
+        self.nhansu_lay = QVBoxLayout(self.page_nhansu)
+        self.nhansu_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_nhansu)
+
+        # Page 8: Settings
         self.page_set = QWidget()
         self.set_lay = QVBoxLayout(self.page_set)
         self.set_lay.setContentsMargins(30, 30, 30, 30)
@@ -301,6 +313,7 @@ class MainWindow(QMainWindow):
         self.cskh_marketing = None
         self.baocao = None
         self.pos_mod = None
+        self.nhansu_mod = None
         self.settings_mod = None
 
     def _ensure_dashboard(self):
@@ -451,6 +464,16 @@ class MainWindow(QMainWindow):
             self.set_lay.addWidget(self.settings_mod)
         return self.settings_mod is not None
 
+    def _ensure_nhan_su(self):
+        if self.nhansu_mod is None and QuanLyNhanVienWidget:
+            self.nhansu_mod = QuanLyNhanVienWidget()
+            try:
+                self.nhansu_mod.setWindowFlags(Qt.Widget)
+            except Exception:
+                pass
+            self.nhansu_lay.addWidget(self.nhansu_mod)
+        return self.nhansu_mod is not None
+
     def _ensure_deferred(self, key: str, ensure_func):
         if getattr(self, key, None) is not None or key in self._module_loading:
             return
@@ -471,6 +494,7 @@ class MainWindow(QMainWindow):
             lambda: self._ensure_deferred("kho", self._ensure_kho),
             lambda: self._ensure_deferred("baocao", self._ensure_baocao),
             lambda: self._ensure_deferred("pos_mod", self._ensure_pos),
+            lambda: self._ensure_deferred("nhansu_mod", self._ensure_nhan_su),
             lambda: self._ensure_deferred("settings_mod", self._ensure_settings),
         ]
         self._warmup_next()
@@ -586,7 +610,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 7: self.nav_buttons[7].setChecked(True)
+        if len(self.nav_buttons) > 8: self.nav_buttons[8].setChecked(True)
         self.lbl_page_title.setText("Cài Đặt Hệ Thống")
         if SettingsWidget:
             self.stack.setCurrentWidget(self.page_set)
@@ -594,6 +618,19 @@ class MainWindow(QMainWindow):
                 self._ensure_deferred("settings_mod", self._ensure_settings)
         else:
             self.show_placeholder("Không tìm thấy module CÀI ĐẶT HỆ THỐNG")
+
+    def show_nhan_su(self):
+        self._last_user_action = time.monotonic()
+        self._set_web_polling(False)
+        self._reset_nav()
+        if len(self.nav_buttons) > 7: self.nav_buttons[7].setChecked(True)
+        self.lbl_page_title.setText("Quản Lý Nhân Sự")
+        if QuanLyNhanVienWidget:
+            self.stack.setCurrentWidget(self.page_nhansu)
+            if self.nhansu_mod is None:
+                self._ensure_deferred("nhansu_mod", self._ensure_nhan_su)
+        else:
+            self.show_placeholder("Không tìm thấy module QUẢN LÝ NHÂN SỰ")
 
     def show_placeholder(self, title):
         self._set_web_polling(False)

@@ -108,12 +108,107 @@ class QuanLyNhanVienWidget(QWidget):
         self._password_visible = False
 
         self._setup_tables()
+        self._apply_dark_style()
         self._seed_demo_data()
         self._setup_defaults()
         self._setup_password_visibility_toggle()
         self._add_dynamic_commission_refresh_button()
         self._setup_signals()
         self._render_all()
+
+    def _apply_dark_style(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0b1220;
+                color: #dbeafe;
+                font-family: "Segoe UI", "Inter";
+            }
+            QFrame, QGroupBox {
+                background-color: #111827;
+                border: 1px solid #334155;
+                border-radius: 10px;
+            }
+            QGroupBox {
+                margin-top: 14px;
+                padding-top: 8px;
+            }
+            QGroupBox::title {
+                color: #93c5fd;
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 6px;
+            }
+            QLineEdit, QComboBox, QDateEdit, QTextEdit {
+                background-color: #0f172a;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 6px 8px;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QTabWidget::pane {
+                border: 1px solid #1f2937;
+                background: #0b1220;
+            }
+            QTabBar::tab {
+                background: #111827;
+                color: #cbd5e1;
+                border: 1px solid #334155;
+                border-bottom: none;
+                padding: 7px 14px;
+                margin-right: 3px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }
+            QTabBar::tab:selected {
+                background: #0ea5e9;
+                color: #f8fafc;
+                border-color: #38bdf8;
+                font-weight: 700;
+            }
+            QPushButton {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #f8fafc;
+            }
+            QPushButton:pressed {
+                background-color: #0284c7;
+                border-color: #0ea5e9;
+            }
+            QTableWidget {
+                background-color: #0f172a;
+                alternate-background-color: #111b31;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                gridline-color: #1f2937;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QTableWidget::item {
+                color: #e2e8f0;
+            }
+            QHeaderView::section {
+                background-color: #1e293b;
+                color: #bae6fd;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
+            }
+            QAbstractScrollArea {
+                border-radius: 10px;
+            }
+        """)
 
     def _setup_password_visibility_toggle(self):
         self.ui.txt_rbac_password.setEchoMode(QLineEdit.Password)
