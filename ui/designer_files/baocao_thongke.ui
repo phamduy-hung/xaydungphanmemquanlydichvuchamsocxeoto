@@ -50,6 +50,12 @@
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
        </spacer>
       </item>
      </layout>
@@ -80,6 +86,88 @@
      </layout>
     </item>
     <item>
+     <widget class="QFrame" name="frame_charts">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QHBoxLayout" name="layout_charts">
+       <item>
+        <widget class="QGroupBox" name="group_chart_bar_month">
+         <property name="title">
+          <string>Bieu do cot: Doanh thu theo thang</string>
+         </property>
+         <layout class="QVBoxLayout" name="layout_chart_bar_month">
+          <item>
+           <widget class="QFrame" name="chart_bar_month_placeholder">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>220</height>
+             </size>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_chart_bar_month_desc">
+            <property name="text">
+             <string>The hien tong doanh thu theo tung thang trong khoang thoi gian da loc.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="group_chart_pie_revenue">
+         <property name="title">
+          <string>Bieu do tron: Co cau doanh thu theo nhom dich vu</string>
+         </property>
+         <layout class="QVBoxLayout" name="layout_chart_pie_revenue">
+          <item>
+           <widget class="QFrame" name="chart_pie_revenue_placeholder">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>220</height>
+             </size>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_chart_pie_revenue_desc">
+            <property name="text">
+             <string>The hien ty trong doanh thu cua tung nhom dich vu trong tong doanh thu.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
      <widget class="QTableWidget" name="table_report">
       <property name="alternatingRowColors">
        <bool>true</bool>
@@ -92,6 +180,12 @@
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
         </property>
        </spacer>
       </item>
