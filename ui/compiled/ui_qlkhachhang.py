@@ -160,6 +160,12 @@ class Ui_Form(object):
         self.btn_xoaKH.setObjectName("btn_xoaKH")
         self.horizontalLayout.addWidget(self.btn_xoaKH)
         self.verticalLayout.addLayout(self.horizontalLayout)
+        self.label_4 = QtWidgets.QLabel(Form)
+        font = QtGui.QFont()
+        font.setItalic(True)
+        self.label_4.setFont(font)
+        self.label_4.setObjectName("label_4")
+        self.verticalLayout.addWidget(self.label_4)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.tbl_customers = QtWidgets.QTableWidget(Form)
@@ -287,6 +293,7 @@ class Ui_Form(object):
         self.btn_themKH.setText(_translate("Form", "Thêm khách hàng"))
         self.btn_suaKH.setText(_translate("Form", "Sửa thông tin"))
         self.btn_xoaKH.setText(_translate("Form", "Xóa khách hàng"))
+        self.label_4.setText(_translate("Form", "Với tổng chi tiêu > 50 triệu hệ tự động phân loại lên VIP "))
         item = self.tbl_customers.horizontalHeaderItem(0)
         item.setText(_translate("Form", "Mã khách hàng"))
         item = self.tbl_customers.horizontalHeaderItem(1)
@@ -316,3 +323,13 @@ class Ui_Form(object):
         item = self.tbl_history.horizontalHeaderItem(5)
         item.setText(_translate("Form", "Kỹ thuật viên"))
 import resources_rc
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    Form = QtWidgets.QWidget()
+    ui = Ui_Form()
+    ui.setupUi(Form)
+    Form.show()
+    sys.exit(app.exec_())

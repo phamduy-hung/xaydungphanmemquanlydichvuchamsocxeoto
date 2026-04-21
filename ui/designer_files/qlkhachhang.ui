@@ -286,6 +286,18 @@ QPushButton:hover {
       </layout>
      </item>
      <item>
+      <widget class="QLabel" name="label_4">
+       <property name="font">
+        <font>
+         <italic>true</italic>
+        </font>
+       </property>
+       <property name="text">
+        <string>Với tổng chi tiêu &gt; 50 triệu hệ tự động phân loại lên VIP </string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="6,4">
        <item>
         <widget class="QTableWidget" name="tbl_customers">
