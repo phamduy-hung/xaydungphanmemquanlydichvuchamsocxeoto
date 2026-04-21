@@ -1,9 +1,13 @@
 import sys
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QGridLayout, QFrame, QPushButton)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 
 class DashboardWidget(QWidget):
+    go_to_pos = pyqtSignal()
+    go_to_kho = pyqtSignal()
+    go_to_cskh = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.setObjectName("dashboardRoot")
@@ -39,6 +43,9 @@ class DashboardWidget(QWidget):
         btn1 = self._make_action_btn("Tạo Hóa Đơn Mới", "#10b981")
         btn2 = self._make_action_btn("Nhập Vật Tư", "#0ea5e9")
         btn3 = self._make_action_btn("Gửi Thông Báo Tới Khách", "#6366f1")
+        btn1.clicked.connect(self.go_to_pos.emit)
+        btn2.clicked.connect(self.go_to_kho.emit)
+        btn3.clicked.connect(self.go_to_cskh.emit)
         
         actions_lay.addWidget(btn1)
         actions_lay.addWidget(btn2)

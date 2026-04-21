@@ -7,6 +7,7 @@ Module: Quản lý đặt lịch từ Web
 """
 import json
 import sys
+import threading
 from pathlib import Path
 from datetime import datetime
 from urllib.request import urlopen, Request
@@ -57,6 +58,7 @@ class WebBookingsWidget(QWidget):
     pending_count_changed = pyqtSignal(int)
     # Phát signal khi nhân viên tiếp nhận đơn → truyền data sang CRM
     booking_accepted = pyqtSignal(dict)
+    refresh_data_ready = pyqtSignal(object, object)
 
     def __init__(self, crm_widget=None, parent=None):
         super().__init__(parent)
@@ -66,11 +68,14 @@ class WebBookingsWidget(QWidget):
         self._all_data = []            # Cache tất cả đơn
         self._api_online = False
         self._polling_enabled = False
+        self._refresh_in_progress = False
+        self._refresh_queued = False
 
         self.setWindowTitle("ProCare: Web Bookings")
         self.resize(1100, 700)
         self._build_ui()
         self._apply_dark_style()
+        self.refresh_data_ready.connect(self._apply_refresh_results)
         self._start_polling()
 
     # ──────────────────────────────
@@ -94,7 +99,7 @@ class WebBookingsWidget(QWidget):
         self.btn_refresh = QPushButton("LÀM MỚI")
         self.btn_refresh.setObjectName("btnWebRefresh")
         self.btn_refresh.setFixedWidth(120)
-        self.btn_refresh.clicked.connect(self._do_refresh)
+        self.btn_refresh.clicked.connect(self.request_refresh)
         header.addWidget(self.btn_refresh)
 
         root.addLayout(header)
@@ -156,8 +161,10 @@ class WebBookingsWidget(QWidget):
         lay.addWidget(info)
 
         self.tbl_pending = QTableWidget()
-        self.tbl_pending.setColumnCount(8)
-        self.tbl_pending.setHorizontalHeaderLabels(["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GHI CHÚ", "THỜI GIAN ĐẶT"])
+        self.tbl_pending.setColumnCount(9)
+        self.tbl_pending.setHorizontalHeaderLabels(
+            ["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GIỜ HẸN", "GHI CHÚ", "THỜI GIAN ĐẶT"]
+        )
         header = self.tbl_pending.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -194,8 +201,10 @@ class WebBookingsWidget(QWidget):
         lay = QVBoxLayout(self.tab_all)
         lay.setContentsMargins(0, 10, 0, 0)
         self.tbl_all = QTableWidget()
-        self.tbl_all.setColumnCount(9)
-        self.tbl_all.setHorizontalHeaderLabels(["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GHI CHÚ", "THỜI GIAN ĐẶT", "TRẠNG THÁI"])
+        self.tbl_all.setColumnCount(10)
+        self.tbl_all.setHorizontalHeaderLabels(
+            ["ID", "HỌ TÊN", "SĐT", "BIỂN SỐ", "DỊCH VỤ", "NGÀY HẸN", "GIỜ HẸN", "GHI CHÚ", "TRẠNG THÁI", "THỜI GIAN ĐẶT"]
+        )
         header2 = self.tbl_all.horizontalHeader()
         header2.setSectionResizeMode(QHeaderView.Stretch)
         header2.setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -278,10 +287,19 @@ class WebBookingsWidget(QWidget):
             }
             QTableWidget {
                 background-color: #0f172a;
+                alternate-background-color: #111b31;
                 color: #e2e8f0;
                 border: 1px solid #334155;
                 gridline-color: #1f2937;
                 selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QTableWidget::item {
+                background-color: #0f172a;
+                color: #e2e8f0;
+            }
+            QTableWidget::item:alternate {
+                background-color: #111b31;
             }
             QHeaderView::section {
                 background-color: #1e293b;
@@ -297,7 +315,7 @@ class WebBookingsWidget(QWidget):
     # ──────────────────────────────
     def _start_polling(self):
         self._timer = QTimer(self)
-        self._timer.timeout.connect(self._do_refresh)
+        self._timer.timeout.connect(self.request_refresh)
         self.set_polling_enabled(True)
 
     def set_polling_enabled(self, enabled: bool, refresh_now: bool = True):
@@ -307,36 +325,54 @@ class WebBookingsWidget(QWidget):
             if not self._timer.isActive():
                 self._timer.start(5000)   # 5 giây
             if refresh_now:
-                self._do_refresh()        # Refresh ngay khi bật (nếu cần)
+                self.request_refresh()    # Refresh ngay khi bật (nếu cần)
         else:
             self._timer.stop()
 
-    def _do_refresh(self):
-        pending = _http_get(f"{API_BASE}/bookings/pending")
-        all_bk  = _http_get(f"{API_BASE}/bookings/all")
+    def request_refresh(self):
+        if self._refresh_in_progress:
+            self._refresh_queued = True
+            return
+        self._refresh_in_progress = True
+        worker = threading.Thread(target=self._refresh_worker, daemon=True)
+        worker.start()
 
+    def _refresh_worker(self):
+        pending = _http_get(f"{API_BASE}/bookings/pending")
+        all_bk = _http_get(f"{API_BASE}/bookings/all")
+        self.refresh_data_ready.emit(pending, all_bk)
+
+    def _do_refresh(self):
+        # Backward compatibility for callers in main.py / action handlers.
+        self.request_refresh()
+
+    def _apply_refresh_results(self, pending, all_bk):
         if pending is None:
             self._api_online = False
             self.lbl_status.setText("API OFFLINE")
-            return
+        else:
+            self._api_online = True
+            self.lbl_status.setText("API ONLINE")
 
-        self._api_online = True
-        self.lbl_status.setText("API ONLINE")
+            # Detect đơn mới
+            old_ids = {b["id"] for b in self._pending_data}
+            new_entries = [b for b in pending if b["id"] not in old_ids]
 
-        # Detect đơn mới
-        old_ids = {b["id"] for b in self._pending_data}
-        new_entries = [b for b in pending if b["id"] not in old_ids]
+            self._pending_data = pending or []
+            self._all_data = all_bk or []
 
-        self._pending_data = pending or []
-        self._all_data = all_bk or []
+            self._render_pending()
+            self._render_all()
+            self._update_stats()
+            self.pending_count_changed.emit(len(self._pending_data))
 
-        self._render_pending()
-        self._render_all()
-        self._update_stats()
-        self.pending_count_changed.emit(len(self._pending_data))
+            if new_entries:
+                self._notify_new(new_entries)
 
-        if new_entries:
-            self._notify_new(new_entries)
+        self._refresh_in_progress = False
+        if self._refresh_queued:
+            self._refresh_queued = False
+            QTimer.singleShot(0, self.request_refresh)
 
     # ──────────────────────────────
     # Render
@@ -482,16 +518,11 @@ class WebBookingsWidget(QWidget):
             print(f"[WebBookings] Không thể push sang CRM: {e}")
 
     def _notify_new(self, new_entries):
-        """Hiển thị thông báo khi có đơn mới."""
+        """Thông báo nhẹ, không block UI."""
         names = ", ".join(b.get("ho_ten", "?") for b in new_entries[:3])
         if len(new_entries) > 3:
             names += f" và {len(new_entries) - 3} người khác"
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Thông báo hệ thống")
-        msg.setText(f"CÓ {len(new_entries)} ĐƠN ĐẶT LỊCH MỚI:\n{names}")
-        msg.setIcon(QMessageBox.Information)
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
+        self.lbl_status.setText(f"{len(new_entries)} đơn mới: {names}")
 
 
 # ──────────────────────────────────────────────

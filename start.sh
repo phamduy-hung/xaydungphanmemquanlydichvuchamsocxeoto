@@ -15,7 +15,7 @@ echo ""
 
 # 1. Khởi động API Server nền
 echo "▶ [1/3] Khởi động API Server (port 8765)..."
-python3 "$ROOT/server/app.py" &
+python "$ROOT/server/app.py" &
 API_PID=$!
 sleep 2
 
@@ -45,7 +45,7 @@ echo "   ✅ Web Frontend đang chạy tại http://localhost:5173"
 # 3. Khởi động Desktop App
 echo ""
 echo "▶ [3/3] Khởi động Desktop App..."
-python3 "$ROOT/main.py"
+python "$ROOT/main.py"
 
 # Cleanup khi đóng desktop app
 echo ""

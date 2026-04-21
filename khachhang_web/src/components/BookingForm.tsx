@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const SERVICES = [
   'Rửa xe thường',
@@ -23,9 +23,12 @@ interface BookingFormData {
   ghi_chu: string;
 }
 
-const API_URL = 'http://localhost:8765/api/booking';
+// Dev: dùng Vite proxy (/api -> 127.0.0.1:8765) để ổn định kết nối.
+// Prod/LAN: có thể override bằng VITE_API_BASE_URL.
+const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) || '/api';
 
 export const BookingForm: React.FC = () => {
+  const calendarWrapRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<BookingFormData>({
     ho_ten: '',
     sdt: '',
@@ -38,6 +41,26 @@ export const BookingForm: React.FC = () => {
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
+  const formatDisplayDate = (d: Date): string => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = String(d.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (!calendarWrapRef.current) return;
+      if (!calendarWrapRef.current.contains(e.target as Node)) {
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -54,7 +77,7 @@ export const BookingForm: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(`${API_BASE}/booking`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -67,8 +90,8 @@ export const BookingForm: React.FC = () => {
         setErrorMsg(data.error || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
         setStatus('error');
       }
-    } catch {
-      setErrorMsg('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
+    } catch (err: any) {
+      setErrorMsg('Không kết nối được tới máy chủ. Vui lòng kiểm tra API server (port 8765).');
       setStatus('error');
     }
   };
@@ -76,6 +99,16 @@ export const BookingForm: React.FC = () => {
   const inputClass =
     'w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-foreground placeholder-foreground/50 focus:outline-none focus:border-cyan-500/60 transition-all duration-300 backdrop-blur-sm text-sm';
   const labelClass = 'block text-foreground/70 text-xs font-medium mb-1.5 uppercase tracking-wider';
+  const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const monthLabel = `Tháng ${calendarMonth.getMonth() + 1}/${calendarMonth.getFullYear()}`;
+  const firstDayOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const firstWeekDay = (firstDayOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+  const calendarCells: Array<Date | null> = [];
+  for (let i = 0; i < firstWeekDay; i++) calendarCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), d));
+  }
 
   return (
     <section id="booking" className="relative z-10 w-full py-24 px-6 md:px-12 lg:px-16">
@@ -177,22 +210,81 @@ export const BookingForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>Ngày hẹn</label>
-                <input
-                  type="date"
-                  name="ngay_hen"
-                  value={form.ngay_hen}
-                  onChange={handleChange}
-                  className={`${inputClass} [color-scheme:dark]`}
-                />
+                <div className="relative" ref={calendarWrapRef}>
+                  <input
+                    type="text"
+                    name="ngay_hen"
+                    value={form.ngay_hen}
+                    onChange={handleChange}
+                    placeholder="dd/mm/yyyy"
+                    className={`${inputClass} cursor-pointer`}
+                    onFocus={() => setShowCalendar(true)}
+                    onClick={() => setShowCalendar(true)}
+                  />
+                  {showCalendar && (
+                    <div className="absolute z-50 mt-2 w-full rounded-xl border border-border bg-[#0f172a] p-3 shadow-2xl">
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <button
+                          type="button"
+                          className="rounded-md px-2 py-1 hover:bg-white/10"
+                          onClick={() =>
+                            setCalendarMonth(
+                              new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+                            )
+                          }
+                        >
+                          ‹
+                        </button>
+                        <span className="font-semibold text-foreground">{monthLabel}</span>
+                        <button
+                          type="button"
+                          className="rounded-md px-2 py-1 hover:bg-white/10"
+                          onClick={() =>
+                            setCalendarMonth(
+                              new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
+                            )
+                          }
+                        >
+                          ›
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs text-foreground/70">
+                        {weekDays.map((d) => (
+                          <div key={d} className="py-1">{d}</div>
+                        ))}
+                      </div>
+                      <div className="mt-1 grid grid-cols-7 gap-1">
+                        {calendarCells.map((d, idx) =>
+                          d ? (
+                            <button
+                              key={`${d.toISOString()}-${idx}`}
+                              type="button"
+                              className="rounded-md py-2 text-sm text-foreground hover:bg-cyan-500/30"
+                              onClick={() => {
+                                setForm((prev) => ({ ...prev, ngay_hen: formatDisplayDate(d) }));
+                                setShowCalendar(false);
+                              }}
+                            >
+                              {d.getDate()}
+                            </button>
+                          ) : (
+                            <div key={`empty-${idx}`} />
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className={labelClass}>Giờ hẹn</label>
                 <input
-                  type="time"
+                  type="text"
                   name="gio_hen"
                   value={form.gio_hen}
                   onChange={handleChange}
-                  className={`${inputClass} [color-scheme:dark]`}
+                  placeholder="Nhập giờ hẹn"
+                  className={inputClass}
                 />
               </div>
             </div>

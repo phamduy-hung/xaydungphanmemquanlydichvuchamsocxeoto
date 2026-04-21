@@ -37,9 +37,18 @@ class AddCustomerDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_Dialog_ThemKhachHang()
         self.ui.setupUi(self)
+        self._apply_input_text_dark_style()
         self.saved_customer_data = None
         self.setWindowTitle("Thêm khách hàng mới")
         self._setup_signals()
+
+    def _apply_input_text_dark_style(self):
+        self.setStyleSheet("""
+            QLineEdit, QTextEdit, QComboBox {
+                background-color: #ffffff;
+                color: #111827;
+            }
+        """)
 
     def _setup_signals(self):
         self.ui.btn_save.clicked.connect(self._save_data)
@@ -75,12 +84,21 @@ class EditCustomerDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_Dialog_SuaThongTinKH()
         self.ui.setupUi(self)
+        self._apply_input_text_dark_style()
         self.customer_data = customer_data or {}
         self.saved_customer_data = None
         self.setWindowTitle("Sửa thông tin khách hàng")
         self._setup_classification_combo()
         self._fill_old_data()
         self._setup_signals()
+
+    def _apply_input_text_dark_style(self):
+        self.setStyleSheet("""
+            QLineEdit, QTextEdit, QComboBox {
+                background-color: #ffffff;
+                color: #111827;
+            }
+        """)
 
     def _setup_classification_combo(self):
         """Đồng bộ nhãn với màn hình chính; ẩn VIP khi chưa đủ ngưỡng (cho phép chỉ 2 lựa chọn)."""

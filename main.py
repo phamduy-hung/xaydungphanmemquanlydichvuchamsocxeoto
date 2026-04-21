@@ -310,6 +310,12 @@ class MainWindow(QMainWindow):
                 self.dashboard_mod.setWindowFlags(Qt.Widget)
             except Exception:
                 pass
+            try:
+                self.dashboard_mod.go_to_pos.connect(self.show_pos)
+                self.dashboard_mod.go_to_kho.connect(self.show_kho_vattu)
+                self.dashboard_mod.go_to_cskh.connect(self.show_chamsoc_kh)
+            except Exception:
+                pass
             self.dash_lay.addWidget(self.dashboard_mod)
         return self.dashboard_mod is not None
 
