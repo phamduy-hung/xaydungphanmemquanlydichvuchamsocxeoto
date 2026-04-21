@@ -1,104 +1,37 @@
-import sys
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QFormLayout, QLineEdit, 
-                             QComboBox, QCheckBox, QScrollArea)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QWidget
+
+from ui.compiled.ui_settings import Ui_Form as Ui_Form_Settings
+
 
 class SettingsWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.ui = Ui_Form_Settings()
+        self.ui.setupUi(self)
+
         self.setObjectName("settingsRoot")
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(30, 30, 30, 30)
+        self.ui.settingsContainer.setObjectName("settingsContainer")
 
-        lbl_title = QLabel("CÀI ĐẶT HỆ THỐNG")
-        main_layout.addWidget(lbl_title)
+        # Map object names for section/card styling compatibility.
+        self.ui.settingsSection_store.setObjectName("settingsSection")
+        self.ui.settingsSection_api.setObjectName("settingsSection")
+        self.ui.settingsSection_payment.setObjectName("settingsSection")
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
+        # Map label names for unified typography styling.
+        self.ui.settingsSectionTitle_store.setObjectName("settingsSectionTitle")
+        self.ui.settingsSectionTitle_api.setObjectName("settingsSectionTitle")
+        self.ui.settingsSectionTitle_payment.setObjectName("settingsSectionTitle")
 
-        container = QWidget()
-        container.setObjectName("settingsContainer")
-        lay = QVBoxLayout(container)
-        lay.setSpacing(25)
+        self.ui.settingsLabel_store_name.setObjectName("settingsLabel")
+        self.ui.settingsLabel_store_addr.setObjectName("settingsLabel")
+        self.ui.settingsLabel_store_hotline.setObjectName("settingsLabel")
+        self.ui.settingsLabel_api_endpoint.setObjectName("settingsLabel")
+        self.ui.settingsLabel_api_key.setObjectName("settingsLabel")
+        self.ui.settingsLabel_sync.setObjectName("settingsLabel")
+        self.ui.settingsLabel_printer.setObjectName("settingsLabel")
+        self.ui.settingsLabel_vat.setObjectName("settingsLabel")
 
-        lay.addWidget(self._make_section("1. Chỉnh sửa Thông tin cửa hàng", self._form_store_info()))
-        lay.addWidget(self._make_section("2. Kết nối API & Website", self._form_api()))
-        lay.addWidget(self._make_section("3. Tích hợp thanh toán & Hóa đơn", self._form_payment()))
-
-        lay.addStretch()
-        scroll.setWidget(container)
-        main_layout.addWidget(scroll)
-
-        # Save Action
-        b_lay = QHBoxLayout()
-        b_lay.addStretch()
-        btn_save = QPushButton("LƯU CÀI ĐẶT")
-        btn_save.setObjectName("btnSaveSettings")
-        btn_save.setMinimumHeight(45)
-        btn_save.setMinimumWidth(200)
-        b_lay.addWidget(btn_save)
-        main_layout.addLayout(b_lay)
         self._apply_dark_style()
-
-    def _make_section(self, title, content_widget):
-        frame = QFrame()
-        frame.setObjectName("settingsSection")
-        flay = QVBoxLayout(frame)
-        flay.setContentsMargins(20, 20, 20, 20)
-
-        lbl = QLabel(title)
-        lbl.setObjectName("settingsSectionTitle")
-        flay.addWidget(lbl)
-
-        flay.addWidget(content_widget)
-        return frame
-
-    def _form_store_info(self):
-        w = QWidget()
-        f = QFormLayout(w)
-        f.setSpacing(15)
-        
-        t1 = QLineEdit("ProCare TPHCM")
-        t2 = QLineEdit("Số 123 Đường Sài Gòn, Quận 1, TPHCM")
-        t3 = QLineEdit("0999 888 777")
-        
-        f.addRow(self._lbl("Tên Trung Tâm:"), t1)
-        f.addRow(self._lbl("Địa Chỉ:"), t2)
-        f.addRow(self._lbl("Hotline:"), t3)
-        return w
-
-    def _form_api(self):
-        w = QWidget()
-        f = QFormLayout(w)
-        f.setSpacing(15)
-        
-        t1 = QLineEdit("http://localhost:8765/api")
-        t2 = QLineEdit("sk_prod_123456789xxxx")
-        cb = QCheckBox("Bật đồng bộ Web Bookings Tự Động")
-        cb.setChecked(True)
-        f.addRow(self._lbl("Endpoint Website:"), t1)
-        f.addRow(self._lbl("API Key (Bảo mật):"), t2)
-        f.addRow(self._lbl("Đồng bộ:"), cb)
-        return w
-        
-    def _form_payment(self):
-        w = QWidget()
-        f = QFormLayout(w)
-        f.setSpacing(15)
-
-        c = QComboBox()
-        c.addItems(["Khổ giấy 80mm", "Khổ giấy 58mm", "Khổ A4"])
-        t = QLineEdit("10%")
-        
-        f.addRow(self._lbl("Máy In Hóa Đơn:"), c)
-        f.addRow(self._lbl("Mặc định Thuế VAT:"), t)
-        return w
-
-    def _lbl(self, text):
-        l = QLabel(text)
-        l.setObjectName("settingsLabel")
-        return l
 
     def _apply_dark_style(self):
         self.setStyleSheet("""
