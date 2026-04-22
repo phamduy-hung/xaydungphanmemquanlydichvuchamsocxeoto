@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>BillPOSDialog</class>
+ <widget class="QDialog" name="BillPOSDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>780</width>
+    <height>640</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Hóa đơn thanh toán</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>16</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>16</number>
+   </property>
+   <property name="spacing">
+    <number>12</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="lbl_bill_title">
+     <property name="text">
+      <string>HÓA ĐƠN THANH TOÁN</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="lbl_bill_meta">
+     <property name="text">
+      <string>Mã hóa đơn: --- | Thời gian: --/--/----</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="lbl_bill_customer">
+     <property name="text">
+      <string>Khách hàng: --- | SĐT: ---</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTableWidget" name="tbl_bill_items">
+     <column>
+      <property name="text">
+       <string>Tên hàng</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Đơn giá</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>SL</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Thành tiền</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Loại</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="bottomLayout">
+     <property name="spacing">
+      <number>16</number>
+     </property>
+     <item>
+      <widget class="QFrame" name="frame_qr">
+       <layout class="QVBoxLayout" name="qrLayout">
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>12</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>12</number>
+        </property>
+        <property name="spacing">
+         <number>8</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_qr_title">
+          <property name="text">
+           <string>QR THANH TOÁN</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_qr_image">
+          <property name="minimumSize">
+           <size>
+            <width>180</width>
+            <height>180</height>
+           </size>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_bank_info">
+          <property name="text">
+           <string>Ngân hàng: MB Bank
+Số TK: 123456789
+Tên TK: CONG TY PROCARE
+Nội dung: ---</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="frame_summary">
+       <layout class="QVBoxLayout" name="sumLayout">
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>12</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>12</number>
+        </property>
+        <property name="spacing">
+         <number>8</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_sum_title">
+          <property name="text">
+           <string>TỔNG HỢP THANH TOÁN</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="rowSubtotal">
+          <item>
+           <widget class="QLabel" name="lbl_subtotal_text">
+            <property name="text">
+             <string>Tạm tính</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="sumSpacer1">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_subtotal_value">
+            <property name="text">
+             <string>0 đ</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="rowDiscount">
+          <item>
+           <widget class="QLabel" name="lbl_discount_text">
+            <property name="text">
+             <string>Giảm giá</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="sumSpacer2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_discount_value">
+            <property name="text">
+             <string>0 đ</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="rowVat">
+          <item>
+           <widget class="QLabel" name="lbl_vat_text">
+            <property name="text">
+             <string>VAT (10.0%)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="sumSpacer3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_vat_value">
+            <property name="text">
+             <string>0 đ</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="rowGrand">
+          <item>
+           <widget class="QLabel" name="lbl_grand_text">
+            <property name="text">
+             <string>Tổng thanh toán</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="sumSpacer4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_grand_value">
+            <property name="text">
+             <string>0 đ</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacerSum">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="btnLayout">
+     <item>
+      <spacer name="btnSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_mark_paid">
+       <property name="text">
+        <string>Đã thanh toán</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

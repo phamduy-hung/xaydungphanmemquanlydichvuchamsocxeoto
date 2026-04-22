@@ -1,6 +1,18 @@
+from datetime import datetime
+import importlib
+
 from PyQt5.QtCore import QDate, Qt
-from PyQt5.QtWidgets import QMainWindow, QTableWidgetItem, QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt5.QtGui import QPainter, QColor, QPen, QFont
+from PyQt5.QtWidgets import (
+    QMainWindow,
+    QTableWidgetItem,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QFileDialog,
+    QMessageBox,
+)
+from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPdfWriter
 
 from modules.kho_vattu.data_store import nhap_kho_log, xuat_kho_log
 from ui.compiled.ui_baocao_thongke import Ui_MainWindow
@@ -132,6 +144,8 @@ class BaoCaoWindow(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self._current_headers = []
+        self._current_rows = []
         self._apply_dark_style()
         
         self._setup_default_dates()
@@ -152,6 +166,8 @@ class BaoCaoWindow(QMainWindow):
         self.ui.btn_doanh_thu.clicked.connect(self.show_report_doanh_thu)
         self.ui.btn_dich_vu.clicked.connect(self.show_report_dich_vu)
         self.ui.btn_nhan_vien.clicked.connect(self.show_report_nhan_vien)
+        self.ui.btn_xuat_file_excel.clicked.connect(self.export_excel)
+        self.ui.btn_xuat_file_pdf.clicked.connect(self.export_pdf)
         self.ui.btn_doanh_thu.setChecked(True)
 
     def _build_demo_charts(self):
@@ -310,6 +326,8 @@ class BaoCaoWindow(QMainWindow):
         """)
 
     def _render_table(self, headers, rows):
+        self._current_headers = list(headers)
+        self._current_rows = [tuple(r) for r in rows]
         table = self.ui.table_report
         table.clear()
         table.setColumnCount(len(headers))
@@ -328,6 +346,119 @@ class BaoCaoWindow(QMainWindow):
             for col_idx, value in enumerate(row_data):
                 table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
         table.resizeColumnsToContents()
+
+    def _report_title(self):
+        if self.ui.btn_doanh_thu.isChecked():
+            return "bao_cao_doanh_thu"
+        if self.ui.btn_dich_vu.isChecked():
+            return "bao_cao_dich_vu"
+        if self.ui.btn_nhan_vien.isChecked():
+            return "bao_cao_nhan_vien"
+        return "bao_cao_thong_ke"
+
+    def export_excel(self):
+        if not self._current_headers or not self._current_rows:
+            QMessageBox.warning(self, "Khong co du lieu", "Khong co du lieu de xuat Excel.")
+            return
+
+        default_name = f"{self._report_title()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        path, _ = QFileDialog.getSaveFileName(self, "Xuat file Excel", default_name, "Excel Files (*.xlsx)")
+        if not path:
+            return
+
+        try:
+            openpyxl_mod = importlib.import_module("openpyxl")
+            styles_mod = importlib.import_module("openpyxl.styles")
+            Workbook = openpyxl_mod.Workbook
+            Font = styles_mod.Font
+            Alignment = styles_mod.Alignment
+        except Exception:
+            QMessageBox.warning(
+                self,
+                "Thieu thu vien",
+                "Chua co openpyxl de xuat Excel.\nVui long cai dat: pip install openpyxl",
+            )
+            return
+
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "BaoCao"
+
+            ws.append(self._current_headers)
+            for row in self._current_rows:
+                ws.append(list(row))
+
+            for cell in ws[1]:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+
+            for column_cells in ws.columns:
+                max_len = 0
+                col_letter = column_cells[0].column_letter
+                for cell in column_cells:
+                    max_len = max(max_len, len(str(cell.value or "")))
+                ws.column_dimensions[col_letter].width = min(max_len + 3, 45)
+
+            wb.save(path)
+            QMessageBox.information(self, "Thanh cong", f"Da xuat Excel:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Loi", f"Khong the xuat Excel.\nChi tiet: {e}")
+
+    def export_pdf(self):
+        if not self._current_headers or not self._current_rows:
+            QMessageBox.warning(self, "Khong co du lieu", "Khong co du lieu de xuat PDF.")
+            return
+
+        default_name = f"{self._report_title()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        path, _ = QFileDialog.getSaveFileName(self, "Xuat file PDF", default_name, "PDF Files (*.pdf)")
+        if not path:
+            return
+
+        try:
+            writer = QPdfWriter(path)
+            writer.setResolution(120)
+            writer.setPageSizeMM((210, 297))  # A4
+
+            painter = QPainter(writer)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            margin = 50
+            x0, y = margin, margin
+            page_w = writer.width() - margin * 2
+
+            painter.setFont(QFont("Segoe UI", 14, QFont.Bold))
+            painter.drawText(x0, y + 30, self._report_title().replace("_", " ").upper())
+            y += 60
+
+            headers = self._current_headers
+            rows = self._current_rows
+            cols = len(headers)
+            col_w = page_w // max(1, cols)
+            row_h = 30
+
+            painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            for i, h in enumerate(headers):
+                rx = x0 + i * col_w
+                painter.drawRect(rx, y, col_w, row_h)
+                painter.drawText(rx + 4, y + 20, str(h))
+            y += row_h
+
+            painter.setFont(QFont("Segoe UI", 9))
+            for row in rows:
+                if y + row_h > writer.height() - margin:
+                    writer.newPage()
+                    y = margin
+                for i, v in enumerate(row):
+                    rx = x0 + i * col_w
+                    painter.drawRect(rx, y, col_w, row_h)
+                    painter.drawText(rx + 4, y + 20, str(v))
+                y += row_h
+
+            painter.end()
+            QMessageBox.information(self, "Thanh cong", f"Da xuat PDF:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Loi", f"Khong the xuat PDF.\nChi tiet: {e}")
 
     def show_report_doanh_thu(self):
         rows = [

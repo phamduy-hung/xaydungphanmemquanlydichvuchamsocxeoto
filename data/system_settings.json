@@ -1,0 +1,16 @@
+{
+  "store_name": "ProCare TPHCM",
+  "store_address": "Số 123 Đường Sài Gòn, Quận 1, TPHCM",
+  "store_hotline": "0999 888 777",
+  "api_endpoint": "http://localhost:8765/api",
+  "api_key": "sk_prod_123456789xxxx",
+  "sync_enabled": true,
+  "invoice_printer": "Khổ giấy 80mm",
+  "default_vat": "10%",
+  "bank_name": "MB Bank",
+  "bank_account_number": "999999999",
+  "bank_account_name": "CONG TY PROCARE",
+  "bank_transfer_note": "Thanh toan hoa don",
+  "qr_payload": "PROCARE_QR",
+  "qr_image_path": ""
+}

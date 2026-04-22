@@ -59,9 +59,16 @@
        </spacer>
       </item>
       <item>
-       <widget class="QPushButton" name="btn_xuatfile">
+       <widget class="QPushButton" name="btn_xuat_file_pdf">
         <property name="text">
-         <string>Xuất file PDF/ Excel</string>
+         <string>Xuất file PDF</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_xuat_file_excel">
+        <property name="text">
+         <string>Xuất file Excel</string>
         </property>
        </widget>
       </item>

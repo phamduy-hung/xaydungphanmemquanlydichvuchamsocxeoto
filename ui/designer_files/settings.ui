@@ -287,6 +287,101 @@
               </property>
              </widget>
             </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="settingsLabel_bank_name">
+              <property name="text">
+               <string>Ngân hàng:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLineEdit" name="txt_bank_name">
+              <property name="text">
+               <string>MB Bank</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="settingsLabel_bank_account_number">
+              <property name="text">
+               <string>Số tài khoản:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLineEdit" name="txt_bank_account_number">
+              <property name="text">
+               <string>123456789</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="settingsLabel_bank_account_name">
+              <property name="text">
+               <string>Chủ tài khoản:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLineEdit" name="txt_bank_account_name">
+              <property name="text">
+               <string>CONG TY PROCARE</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="settingsLabel_bank_transfer_note">
+              <property name="text">
+               <string>Nội dung chuyển khoản mẫu:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QLineEdit" name="txt_bank_transfer_note">
+              <property name="text">
+               <string>Thanh toan hoa don</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QLabel" name="settingsLabel_qr_payload">
+              <property name="text">
+               <string>Nội dung QR thanh toán:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="1">
+             <widget class="QLineEdit" name="txt_qr_payload">
+              <property name="text">
+               <string>PROCARE_QR</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="0">
+             <widget class="QLabel" name="settingsLabel_qr_image">
+              <property name="text">
+               <string>Ảnh QR thanh toán:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="7" column="1">
+             <layout class="QHBoxLayout" name="qr_image_layout">
+              <item>
+               <widget class="QLineEdit" name="txt_qr_image_path">
+                <property name="placeholderText">
+                 <string>Chọn file ảnh QR (.png/.jpg/.jpeg)</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btn_browse_qr_image">
+                <property name="text">
+                 <string>Chọn ảnh</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
            </layout>
           </item>
          </layout>

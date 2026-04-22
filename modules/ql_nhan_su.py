@@ -1,4 +1,6 @@
 import sys
+import csv
+import importlib
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -12,6 +14,7 @@ from PyQt5.QtWidgets import (
     QFormLayout,
     QHeaderView,
     QHBoxLayout,
+    QFileDialog,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -207,6 +210,19 @@ class QuanLyNhanVienWidget(QWidget):
             }
             QAbstractScrollArea {
                 border-radius: 10px;
+            }
+            QLabel#lbl_title,
+            QLabel#label_shift_week,
+            QLabel#label_shift_team,
+            QLabel#label_rbac_employee,
+            QLabel#label_rbac_username,
+            QLabel#label_rbac_password,
+            QLabel#label_rbac_role,
+            QLabel#label_commission_basis,
+            QLabel#label_period {
+                border: none;
+                background: transparent;
+                padding: 0;
             }
         """)
 
@@ -523,7 +539,44 @@ class QuanLyNhanVienWidget(QWidget):
             table.setItem(row, 8, QTableWidgetItem(rec["note"]))
 
     def _notify_export_attendance(self):
-        QMessageBox.information(self, "Chấm công", "Đã mô phỏng xuất báo cáo chấm công.")
+        table = self.ui.tbl_attendance
+        if table.rowCount() == 0 or table.columnCount() == 0:
+            QMessageBox.warning(self, "Chấm công", "Không có dữ liệu để xuất.")
+            return
+
+        from_d = self.ui.date_att_from.date().toString("yyyyMMdd")
+        to_d = self.ui.date_att_to.date().toString("yyyyMMdd")
+        default_name = f"bao_cao_cham_cong_{from_d}_{to_d}.xlsx"
+        save_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Xuất báo cáo chấm công",
+            default_name,
+            "Excel Files (*.xlsx);;CSV Files (*.csv)",
+        )
+        if not save_path:
+            return
+
+        headers, rows = self._collect_table_data(table)
+        target_path = Path(save_path)
+        try:
+            if target_path.suffix.lower() == ".csv" or "CSV" in selected_filter:
+                self._export_commission_to_csv(target_path, headers, rows)
+                QMessageBox.information(self, "Chấm công", f"Đã xuất CSV:\n{target_path}")
+                return
+
+            self._export_commission_to_xlsx(target_path, headers, rows, sheet_name="ChamCong")
+            QMessageBox.information(self, "Chấm công", f"Đã xuất Excel:\n{target_path}")
+        except ImportError:
+            fallback_path = target_path.with_suffix(".csv")
+            self._export_commission_to_csv(fallback_path, headers, rows)
+            QMessageBox.warning(
+                self,
+                "Thiếu thư viện openpyxl",
+                "Chưa cài openpyxl nên hệ thống đã tự xuất sang CSV.\n"
+                f"File: {fallback_path}",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi xuất file", f"Không thể xuất báo cáo chấm công.\nChi tiết: {e}")
 
     def render_commission_table(self):
         table = self.ui.tbl_commission
@@ -559,7 +612,92 @@ class QuanLyNhanVienWidget(QWidget):
         QMessageBox.information(self, "Hoa hồng", "Đã chốt kỳ hoa hồng thành công.")
 
     def _notify_export_commission(self):
-        QMessageBox.information(self, "Hoa hồng", "Đã mô phỏng xuất bảng hoa hồng.")
+        table = self.ui.tbl_commission
+        if table.rowCount() == 0 or table.columnCount() == 0:
+            QMessageBox.warning(self, "Hoa hồng", "Không có dữ liệu để xuất.")
+            return
+
+        default_name = f"bang_hoa_hong_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        save_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Xuất bảng hoa hồng",
+            default_name,
+            "Excel Files (*.xlsx);;CSV Files (*.csv)",
+        )
+        if not save_path:
+            return
+
+        headers, rows = self._collect_table_data(table)
+
+        target_path = Path(save_path)
+        try:
+            # Xuất CSV trực tiếp hoặc fallback khi thiếu openpyxl.
+            if target_path.suffix.lower() == ".csv" or "CSV" in selected_filter:
+                self._export_commission_to_csv(target_path, headers, rows)
+                QMessageBox.information(self, "Hoa hồng", f"Đã xuất CSV:\n{target_path}")
+                return
+
+            self._export_commission_to_xlsx(target_path, headers, rows, sheet_name="HoaHong")
+            QMessageBox.information(self, "Hoa hồng", f"Đã xuất Excel:\n{target_path}")
+        except ImportError:
+            fallback_path = target_path.with_suffix(".csv")
+            self._export_commission_to_csv(fallback_path, headers, rows)
+            QMessageBox.warning(
+                self,
+                "Thiếu thư viện openpyxl",
+                "Chưa cài openpyxl nên hệ thống đã tự xuất sang CSV.\n"
+                f"File: {fallback_path}",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi xuất file", f"Không thể xuất bảng hoa hồng.\nChi tiết: {e}")
+
+    def _export_commission_to_csv(self, path: Path, headers, rows):
+        with path.open("w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            writer.writerows(rows)
+
+    def _export_commission_to_xlsx(self, path: Path, headers, rows, sheet_name: str = "Sheet1"):
+        openpyxl_mod = importlib.import_module("openpyxl")
+        styles_mod = importlib.import_module("openpyxl.styles")
+        Workbook = openpyxl_mod.Workbook
+        Font = styles_mod.Font
+        Alignment = styles_mod.Alignment
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+        ws.append(headers)
+        for row in rows:
+            ws.append(row)
+
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+
+        for col_cells in ws.columns:
+            col_letter = col_cells[0].column_letter
+            max_len = 0
+            for cell in col_cells:
+                max_len = max(max_len, len(str(cell.value or "")))
+            ws.column_dimensions[col_letter].width = min(max_len + 3, 42)
+
+        wb.save(str(path))
+
+    def _collect_table_data(self, table):
+        headers = []
+        for c in range(table.columnCount()):
+            item = table.horizontalHeaderItem(c)
+            headers.append(item.text() if item else f"Col {c + 1}")
+
+        rows = []
+        for r in range(table.rowCount()):
+            row_data = []
+            for c in range(table.columnCount()):
+                item = table.item(r, c)
+                row_data.append(item.text() if item else "")
+            rows.append(row_data)
+        return headers, rows
 
     def refresh_commission_tab(self):
         self.ui.cmb_commission_type.setCurrentIndex(0)
@@ -569,6 +707,9 @@ class QuanLyNhanVienWidget(QWidget):
     def render_permission_matrix(self):
         matrix = [
             ("Tổng quan/KPI", "Có", "Có", "Xem báo cáo vận hành cơ bản"),
+            ("Đặt lịch web", "Có", "Có", "Lễ tân nhận/xử lý lịch đặt từ website"),
+            ("Khách hàng (CRM)", "Có", "Có", "Lễ tân cập nhật hồ sơ và lịch sử khách hàng"),
+            ("Chăm sóc khách hàng", "Có", "Có", "Lễ tân chăm sóc sau dịch vụ theo kịch bản"),
             ("Bán hàng POS", "Có", "Có", "Lễ tân được tạo đơn, Quản lý toàn quyền"),
             ("Kho & Vật tư", "Có", "Không", "Chỉ Quản lý được chỉnh sửa tồn kho"),
             ("Báo cáo thống kê", "Có", "Không", "Lễ tân không xem báo cáo tài chính"),
