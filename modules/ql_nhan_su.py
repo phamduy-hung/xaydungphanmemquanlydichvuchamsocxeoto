@@ -28,6 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from ui.compiled.ui_qlnhansu import Ui_Form as Ui_Form_QLNhanSu
+from modules.integration_data import get_pos_sales
 
 
 class EmployeeDialog(QDialog):
@@ -109,12 +110,25 @@ class QuanLyNhanVienWidget(QWidget):
         self.shift_templates = ["Sáng", "Chiều", "Tối", "Off"]
         self._is_rendering_shifts = False
         self._password_visible = False
+        self._editing_permissions = False
+        self.permission_matrix = [
+            ("Tổng quan/KPI", "Có", "Có", "Xem báo cáo vận hành cơ bản"),
+            ("Đặt lịch web", "Có", "Có", "Lễ tân nhận/xử lý lịch đặt từ website"),
+            ("Khách hàng (CRM)", "Có", "Có", "Lễ tân cập nhật hồ sơ và lịch sử khách hàng"),
+            ("Chăm sóc khách hàng", "Có", "Có", "Lễ tân chăm sóc sau dịch vụ theo kịch bản"),
+            ("Bán hàng POS", "Có", "Có", "Lễ tân được tạo đơn, Quản lý toàn quyền"),
+            ("Kho & Vật tư", "Có", "Không", "Chỉ Quản lý được chỉnh sửa tồn kho"),
+            ("Báo cáo thống kê", "Có", "Không", "Lễ tân không xem báo cáo tài chính"),
+            ("Cài đặt hệ thống", "Có", "Không", "Cấu hình hệ thống chỉ cho Quản lý"),
+            ("Quản lý nhân sự", "Có", "Không", "Quản lý chấm công, phân ca, RBAC"),
+        ]
 
         self._setup_tables()
         self._apply_dark_style()
         self._seed_demo_data()
         self._setup_defaults()
         self._setup_password_visibility_toggle()
+        self._add_permission_edit_buttons()
         self._add_dynamic_commission_refresh_button()
         self._setup_signals()
         self._render_all()
@@ -282,6 +296,20 @@ class QuanLyNhanVienWidget(QWidget):
         self.ui.tbl_shifts.verticalHeader().setVisible(False)
         self.ui.tbl_shifts.setAlternatingRowColors(True)
         self.ui.tbl_shifts.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+    def _add_permission_edit_buttons(self):
+        if not hasattr(self.ui, "verticalLayout_permissions"):
+            return
+        row = QHBoxLayout()
+        row.addStretch()
+        self.btn_edit_permissions = QPushButton("Sửa quyền hạn")
+        self.btn_save_permissions = QPushButton("Lưu quyền hạn")
+        self.btn_save_permissions.setEnabled(False)
+        self.btn_edit_permissions.clicked.connect(self._toggle_permission_edit_mode)
+        self.btn_save_permissions.clicked.connect(self._save_permission_matrix)
+        row.addWidget(self.btn_edit_permissions)
+        row.addWidget(self.btn_save_permissions)
+        self.ui.verticalLayout_permissions.addLayout(row)
 
     def _setup_defaults(self):
         today = QDate.currentDate()
@@ -582,11 +610,20 @@ class QuanLyNhanVienWidget(QWidget):
         table = self.ui.tbl_commission
         table.setRowCount(0)
         mode = self.ui.cmb_commission_type.currentText()
+        pos_sales = get_pos_sales()
+        integrated_jobs = sum(len(s.get("items", [])) for s in pos_sales)
+        integrated_revenue = sum(int(s.get("grand_total", 0) or 0) for s in pos_sales)
+        technicians = [e for e in self.employees if e["role"] == "Kỹ thuật" and e["status"] == "Đang làm"]
+        split_jobs = (integrated_jobs // len(technicians)) if technicians else 0
+        split_revenue = (integrated_revenue // len(technicians)) if technicians else 0
         for emp in self.employees:
             if emp["role"] != "Kỹ thuật" or emp["status"] != "Đang làm":
                 continue
             jobs = 18 + emp["id"] * 3
             revenue = jobs * 180000
+            # Liên kết POS -> Nhân sự: phân bổ công việc/doanh thu tích hợp cho KTV.
+            jobs += split_jobs
+            revenue += split_revenue
             if mode == "Theo khối lượng công việc":
                 rate = 6.0
             elif mode == "Theo dịch vụ thực hiện":
@@ -705,23 +742,59 @@ class QuanLyNhanVienWidget(QWidget):
         self.render_commission_table()
 
     def render_permission_matrix(self):
-        matrix = [
-            ("Tổng quan/KPI", "Có", "Có", "Xem báo cáo vận hành cơ bản"),
-            ("Đặt lịch web", "Có", "Có", "Lễ tân nhận/xử lý lịch đặt từ website"),
-            ("Khách hàng (CRM)", "Có", "Có", "Lễ tân cập nhật hồ sơ và lịch sử khách hàng"),
-            ("Chăm sóc khách hàng", "Có", "Có", "Lễ tân chăm sóc sau dịch vụ theo kịch bản"),
-            ("Bán hàng POS", "Có", "Có", "Lễ tân được tạo đơn, Quản lý toàn quyền"),
-            ("Kho & Vật tư", "Có", "Không", "Chỉ Quản lý được chỉnh sửa tồn kho"),
-            ("Báo cáo thống kê", "Có", "Không", "Lễ tân không xem báo cáo tài chính"),
-            ("Cài đặt hệ thống", "Có", "Không", "Cấu hình hệ thống chỉ cho Quản lý"),
-            ("Quản lý nhân sự", "Có", "Không", "Quản lý chấm công, phân ca, RBAC"),
-        ]
         table = self.ui.tbl_rbac_permissions
         table.setRowCount(0)
-        for row, item in enumerate(matrix):
+        for row, item in enumerate(self.permission_matrix):
             table.insertRow(row)
             for col, value in enumerate(item):
                 table.setItem(row, col, QTableWidgetItem(value))
+        self._apply_permission_item_flags()
+
+    def _apply_permission_item_flags(self):
+        table = self.ui.tbl_rbac_permissions
+        for row in range(table.rowCount()):
+            for col in range(table.columnCount()):
+                item = table.item(row, col)
+                if not item:
+                    continue
+                flags = item.flags() & ~Qt.ItemIsEditable
+                if self._editing_permissions and col in (1, 2):
+                    flags |= Qt.ItemIsEditable
+                item.setFlags(flags)
+
+    def _toggle_permission_edit_mode(self):
+        self._editing_permissions = not self._editing_permissions
+        self.btn_save_permissions.setEnabled(self._editing_permissions)
+        self.btn_edit_permissions.setText("Hủy sửa quyền hạn" if self._editing_permissions else "Sửa quyền hạn")
+        self._apply_permission_item_flags()
+        if not self._editing_permissions:
+            self.render_permission_matrix()
+
+    def _save_permission_matrix(self):
+        table = self.ui.tbl_rbac_permissions
+        allowed = {"có": "Có", "không": "Không"}
+        updated = []
+        for row in range(table.rowCount()):
+            fn = table.item(row, 0).text() if table.item(row, 0) else ""
+            manager_raw = table.item(row, 1).text().strip() if table.item(row, 1) else ""
+            receptionist_raw = table.item(row, 2).text().strip() if table.item(row, 2) else ""
+            desc = table.item(row, 3).text() if table.item(row, 3) else ""
+            manager = allowed.get(manager_raw.lower())
+            receptionist = allowed.get(receptionist_raw.lower())
+            if manager is None or receptionist is None:
+                QMessageBox.warning(
+                    self,
+                    "Sai định dạng quyền",
+                    "Giá trị quyền chỉ được nhập 'Có' hoặc 'Không'.",
+                )
+                return
+            updated.append((fn, manager, receptionist, desc))
+        self.permission_matrix = updated
+        self._editing_permissions = False
+        self.btn_save_permissions.setEnabled(False)
+        self.btn_edit_permissions.setText("Sửa quyền hạn")
+        self.render_permission_matrix()
+        QMessageBox.information(self, "Phân quyền", "Đã cập nhật ma trận quyền hạn.")
 
     def _populate_rbac_employee_combo(self):
         current_id = self.ui.cmb_rbac_employee.currentData()

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from datetime import datetime
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox, QTableWidgetItem, QWidget
@@ -537,6 +538,50 @@ class CustomerManagerWidget(QWidget):
             table.setItem(row, 3, QTableWidgetItem(history["dich_vu"]))
             table.setItem(row, 4, QTableWidgetItem(self._format_currency(history["tong_tien"])))
             table.setItem(row, 5, QTableWidgetItem(history["ktv"]))
+
+    def record_pos_invoice(self, customer_name, customer_phone, total_amount, line_items, created_at):
+        customer_phone = (customer_phone or "").strip()
+        customer_name = (customer_name or "").strip() or "Khách lẻ"
+        total_amount = int(total_amount or 0)
+        if total_amount <= 0:
+            return
+
+        customer = None
+        if customer_phone and customer_phone != "-":
+            for c in self.customers:
+                if c.get("sdt", "").strip() == customer_phone:
+                    customer = c
+                    break
+
+        if customer is None:
+            customer = self._append_customer(
+                {
+                    "ten": customer_name,
+                    "sdt": customer_phone if customer_phone and customer_phone != "-" else "",
+                    "hang_xe": "",
+                    "bien_so": "",
+                    "phan_loai": CLASS_NEW,
+                    "tong_chi_tieu": 0,
+                    "ghi_chu": "Tự động tạo từ hóa đơn POS.",
+                }
+            )
+            self.service_history_map.setdefault(customer["id"], [])
+
+        customer["tong_chi_tieu"] = int(customer.get("tong_chi_tieu", 0)) + total_amount
+        _apply_vip_rule(customer)
+
+        service_text = ", ".join(str(it.get("name", "")) for it in (line_items or []) if it.get("name"))
+        self.service_history_map.setdefault(customer["id"], []).append(
+            {
+                "ngay": created_at.split(" ")[0] if created_at else datetime.now().strftime("%d/%m/%Y"),
+                "hang_xe": customer.get("hang_xe", ""),
+                "bien_so": customer.get("bien_so", ""),
+                "dich_vu": service_text or "Hóa đơn POS",
+                "tong_tien": total_amount,
+                "ktv": "POS",
+            }
+        )
+        self.refresh_customer_table()
 
 
 if __name__ == "__main__":

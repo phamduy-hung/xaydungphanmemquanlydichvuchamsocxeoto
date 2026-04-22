@@ -1,5 +1,6 @@
 import sys
 import time
+import json
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -8,9 +9,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
                              QPushButton, QVBoxLayout, QHBoxLayout, QStackedWidget,
-                             QFrame, QLabel)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap
+                             QFrame, QLabel, QDialog, QLineEdit, QMessageBox, QToolButton)
+from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QPixmap, QIcon, QPainter, QPen, QColor, QPainterPath
 
 try:
     from modules.qlkhachhang import CustomerManagerWidget
@@ -60,7 +61,7 @@ except Exception:
     QuanLyNhanVienWidget = None
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, auth_user=None):
         super().__init__()
         self.setWindowTitle("PROCARE - Premium AutoCare System")
         self.resize(1400, 850)
@@ -71,6 +72,8 @@ class MainWindow(QMainWindow):
         self._module_loading = set()
         self._warmup_queue = []
         self._last_user_action = time.monotonic()
+        self.auth_user = auth_user or {"username": "admin", "role": "Quản lý"}
+        self.current_role = self.auth_user.get("role", "Quản lý")
 
         central_widget = QWidget()
         central_widget.setObjectName("mainRoot")
@@ -103,22 +106,24 @@ class MainWindow(QMainWindow):
 
         # Nav Buttons
         self.nav_buttons = []
-        self._add_nav_button(sidebar_layout, "📊  TỔNG QUAN", self.show_dashboard)
-        self._add_nav_button(sidebar_layout, "📅  ĐẶT LỊCH WEB", self.show_web_bookings)
-        self._add_nav_button(sidebar_layout, "👥  KHÁCH HÀNG (CRM)", self.show_crm)
-        self._add_nav_button(sidebar_layout, "💌  CHĂM SÓC KHÁCH HÀNG", self.show_chamsoc_kh)
-        self._add_nav_button(sidebar_layout, "📦  KHO & VẬT TƯ", self.show_kho_vattu)
-        self._add_nav_button(sidebar_layout, "📈  BÁO CÁO THỐNG KÊ", self.show_baocao)
-        self._add_nav_button(sidebar_layout, "💰  BÁN HÀNG & POS", self.show_pos)
-        self._add_nav_button(sidebar_layout, "💼  QUẢN LÝ NHÂN SỰ", self.show_nhan_su)
-        self._add_nav_button(sidebar_layout, "⚙️  CÀI ĐẶT HỆ THỐNG", self.show_settings)
+        self.nav_button_meta = []
+        self._add_nav_button(sidebar_layout, "dashboard", "📊  TỔNG QUAN", self.show_dashboard)
+        self._add_nav_button(sidebar_layout, "web", "📅  ĐẶT LỊCH WEB", self.show_web_bookings)
+        self._add_nav_button(sidebar_layout, "crm", "👥  KHÁCH HÀNG (CRM)", self.show_crm)
+        self._add_nav_button(sidebar_layout, "cskh", "💌  CHĂM SÓC KHÁCH HÀNG", self.show_chamsoc_kh)
+        self._add_nav_button(sidebar_layout, "kho", "📦  KHO & VẬT TƯ", self.show_kho_vattu)
+        self._add_nav_button(sidebar_layout, "baocao", "📈  BÁO CÁO THỐNG KÊ", self.show_baocao)
+        self._add_nav_button(sidebar_layout, "pos", "💰  BÁN HÀNG & POS", self.show_pos)
+        self._add_nav_button(sidebar_layout, "nhansu", "💼  QUẢN LÝ NHÂN SỰ", self.show_nhan_su)
+        self._add_nav_button(sidebar_layout, "settings", "⚙️  CÀI ĐẶT HỆ THỐNG", self.show_settings)
         
         sidebar_layout.addStretch()
         
-        logout_btn = QPushButton("ĐĂNG XUẤT")
-        logout_btn.setObjectName("btnLogout")
-        logout_btn.setFixedHeight(45)
-        sidebar_layout.addWidget(logout_btn)
+        self.logout_btn = QPushButton("ĐĂNG XUẤT")
+        self.logout_btn.setObjectName("btnLogout")
+        self.logout_btn.setFixedHeight(45)
+        self.logout_btn.clicked.connect(self._logout)
+        sidebar_layout.addWidget(self.logout_btn)
 
         # Build Stack
         self.stack = QStackedWidget()
@@ -201,7 +206,7 @@ class MainWindow(QMainWindow):
         self.lbl_page_title.setObjectName("lblPageTitle")
         h_layout.addWidget(self.lbl_page_title)
         h_layout.addStretch()
-        self.status_box = QLabel("Admin | Trực tuyến")
+        self.status_box = QLabel(f"{self.auth_user.get('username', 'user')} | {self.current_role}")
         self.status_box.setObjectName("statusBadge")
         h_layout.addWidget(self.status_box)
 
@@ -216,6 +221,7 @@ class MainWindow(QMainWindow):
         self._init_modules()
 
         # Set default
+        self._apply_role_visibility()
         self.show_dashboard()
 
         self._update_web_badge(0)
@@ -277,8 +283,8 @@ class MainWindow(QMainWindow):
                 background-color: #1e293b;
                 color: #93c5fd;
                 border: 1px solid #334155;
-                border-radius: 16px;
-                padding: 6px 14px;
+                border-radius: 12px;
+                padding: 4px 10px;
                 font-weight: 600;
             }
             QStackedWidget {
@@ -291,15 +297,46 @@ class MainWindow(QMainWindow):
             }
         """)
 
-    def _add_nav_button(self, layout, text, callback):
+    def _add_nav_button(self, layout, key, text, callback):
         btn = QPushButton(text)
         btn.setProperty("navButton", "true")
         btn.setCheckable(True)
         btn.setFixedHeight(50)
         btn.clicked.connect(callback)
         self.nav_buttons.append(btn)
+        self.nav_button_meta.append((key, btn))
         layout.addWidget(btn)
         return btn
+
+    def _allowed_sections(self):
+        if self.current_role == "Lễ tân":
+            return {"dashboard", "web", "crm", "cskh", "pos"}
+        return {"dashboard", "web", "crm", "cskh", "kho", "baocao", "pos", "nhansu", "settings"}
+
+    def _can_access(self, section_key):
+        return section_key in self._allowed_sections()
+
+    def _apply_role_visibility(self):
+        allowed = self._allowed_sections()
+        for key, btn in self.nav_button_meta:
+            btn.setVisible(key in allowed)
+
+    def _access_denied(self):
+        QMessageBox.warning(self, "Không có quyền", "Tài khoản hiện tại không có quyền truy cập chức năng này.")
+
+    def _logout(self):
+        # Đóng giao diện quản lý hiện tại trước để chỉ còn màn đăng nhập.
+        self.hide()
+        auth_user = show_login_dialog()
+        if auth_user is None:
+            # Nếu đóng màn đăng nhập, thoát hẳn ứng dụng.
+            QApplication.instance().quit()
+            return
+        next_window = MainWindow(auth_user=auth_user)
+        next_window.show()
+        # Giữ reference tạm để tránh bị GC trước khi window cũ đóng.
+        self._next_window = next_window
+        self.close()
 
     def _reset_nav(self):
         for b in self.nav_buttons:
@@ -344,6 +381,11 @@ class MainWindow(QMainWindow):
             if self.web is not None:
                 try:
                     self.web.crm_widget = self.crm
+                except Exception:
+                    pass
+            if self.pos_mod is not None:
+                try:
+                    self.pos_mod.crm_widget = self.crm
                 except Exception:
                     pass
         return self.crm is not None
@@ -452,6 +494,11 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             self.pos_lay.addWidget(self.pos_mod)
+            if self.crm is not None:
+                try:
+                    self.pos_mod.crm_widget = self.crm
+                except Exception:
+                    pass
         return self.pos_mod is not None
 
     def _ensure_settings(self):
@@ -568,6 +615,9 @@ class MainWindow(QMainWindow):
             self.show_placeholder("Không tìm thấy module CHĂM SÓC KHÁCH HÀNG")
 
     def show_kho_vattu(self):
+        if not self._can_access("kho"):
+            self._access_denied()
+            return
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
@@ -581,6 +631,9 @@ class MainWindow(QMainWindow):
             self.show_placeholder("Không tìm thấy module KHO & VẬT TƯ")
 
     def show_baocao(self):
+        if not self._can_access("baocao"):
+            self._access_denied()
+            return
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
@@ -607,6 +660,9 @@ class MainWindow(QMainWindow):
             self.show_placeholder("Không tìm thấy module BÁN HÀNG & POS")
 
     def show_settings(self):
+        if not self._can_access("settings"):
+            self._access_denied()
+            return
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
@@ -620,6 +676,9 @@ class MainWindow(QMainWindow):
             self.show_placeholder("Không tìm thấy module CÀI ĐẶT HỆ THỐNG")
 
     def show_nhan_su(self):
+        if not self._can_access("nhansu"):
+            self._access_denied()
+            return
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
@@ -682,9 +741,214 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    window = MainWindow()
+    auth_user = show_login_dialog()
+    if auth_user is None:
+        return
+    window = MainWindow(auth_user=auth_user)
     window.show()
     sys.exit(app.exec_())
+
+
+def _load_auth_accounts():
+    cfg_path = PROJECT_ROOT / "data" / "auth_accounts.json"
+    if cfg_path.exists():
+        try:
+            payload = json.loads(cfg_path.read_text(encoding="utf-8"))
+            if isinstance(payload, list):
+                return payload
+        except Exception:
+            pass
+    return [
+        {"username": "admin", "password": "123456", "role": "Quản lý"},
+        {"username": "letan", "password": "123456", "role": "Lễ tân"},
+        {"username": "admin1", "password": "123456", "role": "Quản lý"},
+    ]
+
+
+def show_login_dialog():
+    def _eye_icon(crossed=False):
+        pix = QPixmap(42, 42)
+        pix.fill(Qt.transparent)
+        p = QPainter(pix)
+        p.setRenderHint(QPainter.Antialiasing)
+        white = QColor("#f8fafc")
+        pen = QPen(white, 2.8)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+
+        # Eye outline
+        path = QPainterPath()
+        path.moveTo(6, 21)
+        path.cubicTo(13, 10, 29, 10, 36, 21)
+        path.cubicTo(29, 32, 13, 32, 6, 21)
+        p.drawPath(path)
+
+        # Iris + pupil
+        p.setBrush(white)
+        p.drawEllipse(16, 16, 10, 10)
+        p.setBrush(QColor("#0b1220"))
+        p.setPen(Qt.NoPen)
+        p.drawEllipse(20, 20, 3, 3)
+
+        # Cross slash when hidden
+        if crossed:
+            p.setPen(QPen(white, 3.0))
+            p.setBrush(Qt.NoBrush)
+            p.drawLine(8, 34, 34, 8)
+
+        p.end()
+        return QIcon(pix)
+
+    dialog = QDialog()
+    dialog.setWindowTitle("Đăng nhập hệ thống")
+    dialog.setFixedSize(460, 420)
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(18, 18, 18, 18)
+    layout.setSpacing(12)
+
+    card = QFrame()
+    card.setObjectName("loginCard")
+    card_lay = QVBoxLayout(card)
+    card_lay.setContentsMargins(22, 22, 22, 22)
+    card_lay.setSpacing(10)
+
+    logo_lbl = QLabel()
+    logo_lbl.setObjectName("loginLogo")
+    logo_lbl.setAlignment(Qt.AlignCenter)
+    logo_pix = QPixmap(str(PROJECT_ROOT / "assets" / "images" / "logo-removebg-preview.png"))
+    if not logo_pix.isNull():
+        logo_lbl.setPixmap(logo_pix.scaled(280, 130, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+    else:
+        logo_lbl.setText("PROCARE")
+    card_lay.addWidget(logo_lbl)
+
+    lbl = QLabel("ĐĂNG NHẬP HỆ THỐNG")
+    lbl.setObjectName("loginTitle")
+    lbl.setAlignment(Qt.AlignCenter)
+    card_lay.addWidget(lbl)
+
+    subtitle = QLabel("Sử dụng tài khoản Quản lý hoặc Lễ tân để tiếp tục")
+    subtitle.setObjectName("loginSubtitle")
+    subtitle.setAlignment(Qt.AlignCenter)
+    card_lay.addWidget(subtitle)
+
+    txt_user = QLineEdit()
+    txt_user.setPlaceholderText("Tên đăng nhập")
+    txt_pass = QLineEdit()
+    txt_pass.setPlaceholderText("Mật khẩu")
+    txt_pass.setEchoMode(QLineEdit.Password)
+    btn_toggle_pwd = QToolButton(txt_pass)
+    btn_toggle_pwd.setObjectName("btnTogglePwd")
+    btn_toggle_pwd.setCursor(Qt.PointingHandCursor)
+    btn_toggle_pwd.setIcon(_eye_icon(crossed=False))
+    btn_toggle_pwd.setIconSize(QSize(24, 24))
+    btn_toggle_pwd.setFixedSize(30, 30)
+    btn_toggle_pwd.setToolTip("Ẩn/hiện mật khẩu")
+    btn_toggle_pwd.setStyleSheet("""
+        QToolButton#btnTogglePwd {
+            border: none;
+            background: transparent;
+            padding: 0;
+        }
+        QToolButton#btnTogglePwd:hover {
+            background: rgba(56, 189, 248, 0.15);
+            border-radius: 15px;
+        }
+    """)
+    txt_pass.setTextMargins(0, 0, 36, 0)
+
+    def _position_pwd_button():
+        x = txt_pass.width() - btn_toggle_pwd.width() - 6
+        y = (txt_pass.height() - btn_toggle_pwd.height()) // 2
+        btn_toggle_pwd.move(max(0, x), max(0, y))
+
+    _orig_resize_event = txt_pass.resizeEvent
+
+    def _patched_resize_event(event):
+        _orig_resize_event(event)
+        _position_pwd_button()
+
+    txt_pass.resizeEvent = _patched_resize_event
+    _position_pwd_button()
+    lbl_error = QLabel("")
+    lbl_error.setObjectName("loginError")
+    lbl_error.setVisible(False)
+    btn_login = QPushButton("ĐĂNG NHẬP")
+    card_lay.addWidget(txt_user)
+    card_lay.addWidget(txt_pass)
+    card_lay.addWidget(lbl_error)
+    card_lay.addSpacing(8)
+    card_lay.addWidget(btn_login)
+    layout.addWidget(card)
+    dialog.setStyleSheet("""
+        QDialog { background-color: #0b1220; color: #dbeafe; }
+        QFrame#loginCard {
+            background: #111827;
+            border: 1px solid #334155;
+            border-radius: 14px;
+        }
+        QLabel#loginLogo {
+            border: none;
+            background: transparent;
+            padding: 0;
+        }
+        QLabel#loginTitle { color: #f8fafc; font-size: 24px; font-weight: 800; }
+        QLabel#loginSubtitle { color: #94a3b8; font-size: 12px; }
+        QLabel#loginError {
+            color: #fca5a5;
+            background: #2b1220;
+            border: 1px solid #7f1d1d;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 600;
+        }
+        QLineEdit {
+            background:#0f172a;
+            color:#e2e8f0;
+            border:1px solid #334155;
+            border-radius:8px;
+            padding:10px 12px;
+            min-height:20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        QLineEdit:focus { border:1px solid #38bdf8; }
+        QPushButton { background:#0ea5e9; color:#f8fafc; border:1px solid #38bdf8; border-radius:10px; font-weight:700; min-height:42px; }
+        QPushButton:hover { background:#0284c7; }
+    """)
+    accounts = _load_auth_accounts()
+    auth = {"user": None}
+
+    def do_login():
+        lbl_error.setVisible(False)
+        username = txt_user.text().strip()
+        password = txt_pass.text().strip()
+        for acc in accounts:
+            if acc.get("username") == username and acc.get("password") == password:
+                role = acc.get("role", "Lễ tân")
+                if role not in ("Quản lý", "Lễ tân"):
+                    role = "Lễ tân"
+                auth["user"] = {"username": username, "role": role}
+                dialog.accept()
+                return
+        lbl_error.setText("Sai tên đăng nhập hoặc mật khẩu.")
+        lbl_error.setVisible(True)
+
+    btn_login.clicked.connect(do_login)
+    def toggle_password():
+        if txt_pass.echoMode() == QLineEdit.Password:
+            txt_pass.setEchoMode(QLineEdit.Normal)
+            btn_toggle_pwd.setIcon(_eye_icon(crossed=True))
+        else:
+            txt_pass.setEchoMode(QLineEdit.Password)
+            btn_toggle_pwd.setIcon(_eye_icon(crossed=False))
+
+    btn_toggle_pwd.clicked.connect(toggle_password)
+    txt_user.returnPressed.connect(do_login)
+    txt_pass.returnPressed.connect(do_login)
+    if dialog.exec_() != QDialog.Accepted:
+        return None
+    return auth["user"]
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
-import sys
 from datetime import date, timedelta
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QGridLayout, QFrame, QPushButton)
+                            QFrame, QPushButton)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont
+from ui.compiled.ui_dashboard import Ui_Form as Ui_Form_Dashboard
 
 
 class SimpleBarChartWidget(QWidget):
@@ -123,35 +123,30 @@ class DashboardWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.ui = Ui_Form_Dashboard()
+        self.ui.setupUi(self)
         self.setObjectName("dashboardRoot")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(25)
-
-        # Header Title
-        lbl_title = QLabel("TỔNG QUAN HOẠT ĐỘNG")
-        lbl_title.setObjectName("dashboardTitle")
-        layout.addWidget(lbl_title)
+        self.ui.lbl_dashboard_title.setObjectName("dashboardTitle")
+        self.ui.lbl_action_title.setObjectName("dashboardSubTitle")
+        self.ui.lbl_quick_title.setObjectName("dashboardSubTitle")
 
         # Stat cards row
-        grid = QHBoxLayout()
-        grid.setSpacing(25)
-
-        grid.addWidget(self._make_stat_card("Doanh thu hôm nay", "18.540.000 đ", "#10b981", "↑ 12% so với hôm qua"))
-        grid.addWidget(self._make_stat_card("Xe đang xử lý", "8", "#0ea5e9", "3 xe sắp hoàn thiện"))
-        grid.addWidget(self._make_stat_card("Lịch hẹn mới", "14", "#f59e0b", "2 đơn chờ tiếp nhận"))
-        grid.addWidget(self._make_stat_card("Khách hàng mới", "5", "#8b5cf6", "Tăng 2% tuần này"))
-        grid.addStretch()
-
-        layout.addLayout(grid)
+        self.ui.layout_stat_cards.addWidget(
+            self._make_stat_card("Doanh thu hôm nay", "18.540.000 đ", "#10b981", "↑ 12% so với hôm qua")
+        )
+        self.ui.layout_stat_cards.addWidget(
+            self._make_stat_card("Xe đang xử lý", "8", "#0ea5e9", "3 xe sắp hoàn thiện")
+        )
+        self.ui.layout_stat_cards.addWidget(
+            self._make_stat_card("Lịch hẹn mới", "14", "#f59e0b", "2 đơn chờ tiếp nhận")
+        )
+        self.ui.layout_stat_cards.addWidget(
+            self._make_stat_card("Khách hàng mới", "5", "#8b5cf6", "Tăng 2% tuần này")
+        )
+        self.ui.layout_stat_cards.addStretch()
 
         # Quick actions
-        lbl_action = QLabel("Thao tác nhanh")
-        lbl_action.setObjectName("dashboardSubTitle")
-        layout.addWidget(lbl_action)
-
-        actions_lay = QHBoxLayout()
-        actions_lay.setSpacing(15)
+        actions_lay = self.ui.layout_action_buttons
         
         btn1 = self._make_action_btn("Tạo Hóa Đơn Mới", "#10b981")
         btn2 = self._make_action_btn("Nhập Vật Tư", "#0ea5e9")
@@ -165,21 +160,14 @@ class DashboardWidget(QWidget):
         actions_lay.addWidget(btn3)
         actions_lay.addStretch()
 
-        layout.addLayout(actions_lay)
-
         # Lightweight charts for quick snapshot (no heavy chart engine).
-        lbl_quick = QLabel("Biểu đồ nhanh hôm nay")
-        lbl_quick.setObjectName("dashboardSubTitle")
-        layout.addWidget(lbl_quick)
-
         quick_lay = QHBoxLayout()
         quick_lay.setSpacing(16)
         quick_lay.addWidget(self._make_quick_bar_card())
         quick_lay.addWidget(self._make_quick_pie_card())
         quick_lay.addStretch()
-        layout.addLayout(quick_lay)
+        self.ui.layout_quick_charts.addLayout(quick_lay)
 
-        layout.addStretch()
         self._apply_dark_style()
 
     def _make_stat_card(self, title, value, color, sub):

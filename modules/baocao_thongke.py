@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPdfWriter
 
 from modules.kho_vattu.data_store import nhap_kho_log, xuat_kho_log
+from modules.integration_data import get_pos_sales
 from ui.compiled.ui_baocao_thongke import Ui_MainWindow
 
 class BaoCaoKho:
@@ -461,13 +462,18 @@ class BaoCaoWindow(QMainWindow):
             QMessageBox.critical(self, "Loi", f"Khong the xuat PDF.\nChi tiet: {e}")
 
     def show_report_doanh_thu(self):
+        pos_sales = get_pos_sales()
+        pos_count = len(pos_sales)
+        pos_revenue = sum(int(x.get("grand_total", 0) or 0) for x in pos_sales)
         rows = [
             ("Rửa xe + hút bụi", 120, "18.000.000"),
             ("Phủ ceramic", 34, "22.100.000"),
             ("Bảo dưỡng tổng quát", 15, "19.500.000"),
+            ("Doanh thu POS tích hợp", pos_count, f"{pos_revenue:,}".replace(",", ".")),
         ]
         self._render_table(["Dịch vụ", "Số lượt", "Doanh thu (VND)"], rows)
-        self.ui.lbl_summary.setText("Tổng doanh thu: 59.600.000 VND")
+        total = 59600000 + pos_revenue
+        self.ui.lbl_summary.setText(f"Tổng doanh thu: {total:,} VND".replace(",", "."))
         self._update_demo_charts(
             ["T1", "T2", "T3", "T4", "T5", "T6"],
             [42, 55, 61, 58, 75, 69],

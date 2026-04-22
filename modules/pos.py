@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
 )
 from ui.compiled.ui_bill_pos import Ui_BillPOSDialog
 from ui.compiled.ui_pos import Ui_POSForm
+from modules.integration_data import append_pos_sale
 
 
 class InvoiceDialog(QDialog):
@@ -222,6 +223,7 @@ class POSWidget(QWidget):
         self._updating_cart = False
         self._applied_discount_code = ""
         self._applied_discount_value = ("none", 0)
+        self.crm_widget = None
 
         self.catalog_items = [
             {"name": "Rửa xe detailing bọt tuyết", "price": 150000, "type": "Dịch vụ"},
@@ -554,6 +556,7 @@ class POSWidget(QWidget):
         dlg = InvoiceDialog(invoice_data, self)
         if dlg.exec_():
             paid_label = dlg.payment_method or "Không xác định"
+            self._after_payment_integrations(invoice_data, paid_label)
             self._show_notice(
                 "Thanh toán",
                 f"Đã thanh toán hóa đơn {invoice_no} ({paid_label}).",
@@ -565,6 +568,83 @@ class POSWidget(QWidget):
             self.txt_discount_code.clear()
             self.lbl_discount_note.setText("Chưa áp mã giảm giá")
             self._render_cart()
+
+    def _after_payment_integrations(self, invoice_data, paid_label):
+        event = {
+            "invoice_no": invoice_data.get("invoice_no"),
+            "created_at": invoice_data.get("created_at"),
+            "customer_name": invoice_data.get("customer_name"),
+            "customer_phone": invoice_data.get("customer_phone"),
+            "subtotal": invoice_data.get("subtotal", 0),
+            "discount_amount": invoice_data.get("discount_amount", 0),
+            "vat_amount": invoice_data.get("vat_amount", 0),
+            "grand_total": invoice_data.get("grand_total", 0),
+            "payment_method": paid_label,
+            "items": invoice_data.get("lines", []),
+        }
+        append_pos_sale(event)
+
+        # POS -> CRM: tự ghi nhận mua hàng/lịch sử.
+        if self.crm_widget is not None and hasattr(self.crm_widget, "record_pos_invoice"):
+            try:
+                self.crm_widget.record_pos_invoice(
+                    invoice_data.get("customer_name", ""),
+                    invoice_data.get("customer_phone", ""),
+                    int(invoice_data.get("grand_total", 0)),
+                    invoice_data.get("lines", []),
+                    invoice_data.get("created_at", ""),
+                )
+            except Exception:
+                pass
+
+        # POS -> Kho: trừ kho cho các dòng sản phẩm có ánh xạ tên.
+        self._sync_inventory_from_invoice(invoice_data.get("lines", []))
+
+        # POS -> CSKH loyalty: cộng điểm nếu có dữ liệu khách.
+        try:
+            from modules.chamsoc_kh_marketing import ghi_nhan_thanh_toan_tich_hop
+
+            phone = (invoice_data.get("customer_phone") or "").strip()
+            if phone and phone != "-":
+                ghi_nhan_thanh_toan_tich_hop(
+                    ma_khach_hang=phone,
+                    so_tien_vnd=int(invoice_data.get("grand_total", 0)),
+                    ten_khach_hang=invoice_data.get("customer_name", ""),
+                    sdt=phone,
+                )
+        except Exception:
+            pass
+
+    def _sync_inventory_from_invoice(self, lines):
+        try:
+            from modules.kho_vattu.data_store import vattu_list, ton_kho, xuat_kho_log
+        except Exception:
+            return
+        for line in lines or []:
+            item_type = (line.get("item_type") or "").strip().lower()
+            if "sản phẩm" not in item_type and "san pham" not in item_type:
+                continue
+            name = (line.get("name") or "").strip().lower()
+            qty = max(1, int(line.get("qty") or 1))
+            matched = None
+            for vt in vattu_list:
+                vt_name = str(vt.get("ten", "")).strip().lower()
+                if vt_name and (vt_name in name or name in vt_name):
+                    matched = vt
+                    break
+            if not matched:
+                continue
+            vt_id = matched.get("id")
+            current = int(ton_kho.get(vt_id, 0))
+            used = min(current, qty)
+            ton_kho[vt_id] = max(0, current - used)
+            xuat_kho_log.append(
+                {
+                    "vat_tu_id": vt_id,
+                    "so_luong": used,
+                    "ghi_chu": f"Trừ kho từ POS ({line.get('name', '')})",
+                }
+            )
 
     def _show_notice(self, title: str, message: str, level: str = "info"):
         box = QMessageBox(self)

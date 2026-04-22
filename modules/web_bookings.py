@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
     QHeaderView, QMessageBox, QTabWidget, QFrame,
     QSizePolicy, QAbstractItemView
 )
+from modules.integration_data import append_web_accept
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -505,6 +506,16 @@ class WebBookingsWidget(QWidget):
             # Chuyển dữ liệu sang CRM nếu có
             if self.crm_widget:
                 self._push_to_crm(booking)
+            append_web_accept(
+                {
+                    "booking_id": booking.get("id"),
+                    "customer_name": booking.get("ho_ten", ""),
+                    "phone": booking.get("sdt", ""),
+                    "service": booking.get("dich_vu", ""),
+                    "appointment_date": booking.get("ngay_hen", ""),
+                    "appointment_time": booking.get("gio_hen", ""),
+                }
+            )
             self._do_refresh()
             QMessageBox.information(
                 self, "Thành công",
