@@ -227,15 +227,16 @@ class BaoCaoWindow(QMainWindow):
                 border: none;
             }
             QGroupBox {
-                margin-top: 12px;
+                margin-top: 18px;
                 padding-top: 8px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 left: 10px;
-                top: -1px;
-                padding: 0 6px;
+                top: -3px;
+                padding: 0 8px;
+                background-color: #0b1220;
                 color: #93c5fd;
                 font-weight: 700;
             }

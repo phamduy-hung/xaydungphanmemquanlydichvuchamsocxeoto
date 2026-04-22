@@ -20,7 +20,7 @@
       <item>
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Tu ngay:</string>
+         <string>Từ ngày</string>
         </property>
        </widget>
       </item>
@@ -34,7 +34,7 @@
       <item>
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Den ngay:</string>
+         <string>Đến ngày</string>
         </property>
        </widget>
       </item>
@@ -58,6 +58,13 @@
         </property>
        </spacer>
       </item>
+      <item>
+       <widget class="QPushButton" name="btn_xuatfile">
+        <property name="text">
+         <string>Xuất file PDF/ Excel</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
@@ -65,21 +72,21 @@
       <item>
        <widget class="QPushButton" name="btn_doanh_thu">
         <property name="text">
-         <string>Doanh thu va Loi nhuan</string>
+         <string>Doanh thu và lợi nhuận</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="btn_dich_vu">
         <property name="text">
-         <string>Dich vu ban chay</string>
+         <string>Dịch vụ bán chạy</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="btn_nhan_vien">
         <property name="text">
-         <string>Hieu suat nhan vien</string>
+         <string>Hiệu suất nhân viên</string>
         </property>
        </widget>
       </item>
@@ -97,7 +104,7 @@
        <item>
         <widget class="QGroupBox" name="group_chart_bar_month">
          <property name="title">
-          <string>Bieu do cot: Doanh thu theo thang</string>
+          <string>Biểu đồ cột: Doanh thu theo tháng</string>
          </property>
          <layout class="QVBoxLayout" name="layout_chart_bar_month">
           <item>
@@ -119,7 +126,7 @@
           <item>
            <widget class="QLabel" name="lbl_chart_bar_month_desc">
             <property name="text">
-             <string>The hien tong doanh thu theo tung thang trong khoang thoi gian da loc.</string>
+             <string>Thể hiện tổng doanh thu theo từng tháng trong khoảng thời gian đã lọc.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -132,7 +139,7 @@
        <item>
         <widget class="QGroupBox" name="group_chart_pie_revenue">
          <property name="title">
-          <string>Bieu do tron: Co cau doanh thu theo nhom dich vu</string>
+          <string>Biểu đồ tròn: Cơ cấu doanh thu theo nhóm dịch vụ</string>
          </property>
          <layout class="QVBoxLayout" name="layout_chart_pie_revenue">
           <item>
@@ -154,7 +161,7 @@
           <item>
            <widget class="QLabel" name="lbl_chart_pie_revenue_desc">
             <property name="text">
-             <string>The hien ty trong doanh thu cua tung nhom dich vu trong tong doanh thu.</string>
+             <string>Thể hiện tỉ lệ doanh thu của từng nhóm dịch vụ trong tổng doanh thu.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -172,6 +179,12 @@
       <property name="alternatingRowColors">
        <bool>true</bool>
       </property>
+      <attribute name="horizontalHeaderDefaultSectionSize">
+       <number>150</number>
+      </attribute>
+      <attribute name="horizontalHeaderStretchLastSection">
+       <bool>true</bool>
+      </attribute>
      </widget>
     </item>
     <item>
@@ -199,7 +212,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Tong doanh thu: 0 VND</string>
+         <string>Tổng doanh thu: 0 VND</string>
         </property>
        </widget>
       </item>

@@ -18,6 +18,7 @@ class POSWidget(QWidget):
         
         lbl_avail = QLabel("📦 DANH MỤC DỊCH VỤ & VẬT TƯ")
         lbl_avail.setObjectName("posTitle")
+        lbl_avail.setProperty("plainTitle", "true")
         left_panel.addWidget(lbl_avail)
 
         search = QLineEdit()
@@ -59,6 +60,7 @@ class POSWidget(QWidget):
 
         lbl_cart = QLabel("🗒️ HÓA ĐƠN CHI TIẾT")
         lbl_cart.setObjectName("posTitle")
+        lbl_cart.setProperty("plainTitle", "true")
         right_lay.addWidget(lbl_cart)
 
         # Customer selection
@@ -67,6 +69,7 @@ class POSWidget(QWidget):
         
         lbl_c_title = QLabel("KHÁCH HÀNG")
         lbl_c_title.setObjectName("posSubTitle")
+        lbl_c_title.setProperty("plainTitle", "true")
         cust_lay.addWidget(lbl_c_title)
 
         cust_search = QLineEdit()
@@ -94,6 +97,7 @@ class POSWidget(QWidget):
         lbl_total_t = QLabel("TỔNG CỘNG:")
         lbl_total_v = QLabel("650.000 đ")
         lbl_total_t.setObjectName("posSubTitle")
+        lbl_total_t.setProperty("plainTitle", "true")
         lbl_total_v.setObjectName("posTotal")
         sum_lay.addWidget(lbl_total_t)
         sum_lay.addStretch()
@@ -123,6 +127,11 @@ class POSWidget(QWidget):
             QLabel#posSubTitle {
                 color: #93c5fd;
                 font-weight: 700;
+            }
+            QLabel[plainTitle="true"] {
+                border: none;
+                background: transparent;
+                padding: 0;
             }
             QLabel#posTotal {
                 color: #22d3ee;

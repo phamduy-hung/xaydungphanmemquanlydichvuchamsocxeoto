@@ -89,6 +89,7 @@ class WebBookingsWidget(QWidget):
         # ─── Header ───
         header = QHBoxLayout()
         title = QLabel("DANH SÁCH ĐẶT LỊCH TRỰC TUYẾN")
+        title.setObjectName("webBookingTitle")
         header.addWidget(title)
 
         header.addStretch()
@@ -139,13 +140,16 @@ class WebBookingsWidget(QWidget):
 
     def _stat_card(self, label: str, value: str, color: str):
         frame = QFrame()
+        frame.setObjectName("webStatCard")
         frame.setFixedSize(220, 100)
         lay = QVBoxLayout(frame)
         lay.setContentsMargins(20, 12, 20, 12)
         
         lbl_val = QLabel(value)
+        lbl_val.setObjectName("webStatValue")
         
         lbl_lbl = QLabel(label.upper())
+        lbl_lbl.setObjectName("webStatLabel")
         
         lay.addWidget(lbl_lbl)
         lay.addWidget(lbl_val)
@@ -157,6 +161,7 @@ class WebBookingsWidget(QWidget):
         lay.setSpacing(8)
 
         info = QLabel("Các đơn đặt lịch mới từ website đang chờ nhân viên xử lý. Bấm [TIẾP NHẬN] để chuyển dữ liệu khách hàng vào hệ thống CRM.")
+        info.setObjectName("webPendingInfo")
         info.setWordWrap(True)
         lay.addWidget(info)
 
@@ -241,10 +246,45 @@ class WebBookingsWidget(QWidget):
             QLabel {
                 color: #dbeafe;
             }
+            QLabel#webBookingTitle,
+            QLabel#webPendingInfo {
+                border: none;
+                background: transparent;
+                padding: 0;
+            }
+            QLabel#webBookingTitle {
+                color: #f8fafc;
+                font-size: 18px;
+                font-weight: 800;
+            }
+            QLabel#webPendingInfo {
+                color: #cbd5e1;
+                font-size: 13px;
+            }
             QFrame {
                 background-color: #111827;
                 border: 1px solid #334155;
                 border-radius: 10px;
+            }
+            QFrame#webStatCard {
+                background-color: #111827;
+                border: 1px solid #2b3d57;
+                border-radius: 12px;
+            }
+            QLabel#webStatLabel {
+                color: #cbd5e1;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 0.4px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#webStatValue {
+                color: #f8fafc;
+                font-size: 24px;
+                font-weight: 800;
+                border: none;
+                background: transparent;
             }
             QTabWidget::pane {
                 border: 1px solid #334155;

@@ -37,6 +37,9 @@ class Ui_MainWindow(object):
         self.layout_filter.addWidget(self.date_den_ngay)
         spacerItem = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.layout_filter.addItem(spacerItem)
+        self.btn_xuatfile = QtWidgets.QPushButton(self.centralwidget)
+        self.btn_xuatfile.setObjectName("btn_xuatfile")
+        self.layout_filter.addWidget(self.btn_xuatfile)
         self.verticalLayout.addLayout(self.layout_filter)
         self.layout_buttons = QtWidgets.QHBoxLayout()
         self.layout_buttons.setObjectName("layout_buttons")
@@ -92,6 +95,8 @@ class Ui_MainWindow(object):
         self.table_report.setObjectName("table_report")
         self.table_report.setColumnCount(0)
         self.table_report.setRowCount(0)
+        self.table_report.horizontalHeader().setDefaultSectionSize(150)
+        self.table_report.horizontalHeader().setStretchLastSection(True)
         self.verticalLayout.addWidget(self.table_report)
         self.layout_summary = QtWidgets.QHBoxLayout()
         self.layout_summary.setObjectName("layout_summary")
@@ -113,16 +118,17 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Báo Cáo Thống Kê Car Care"))
-        self.label.setText(_translate("MainWindow", "Từ ngày:"))
-        self.label_2.setText(_translate("MainWindow", "Đến ngày:"))
-        self.btn_doanh_thu.setText(_translate("MainWindow", "Doanh thu và Lợi nhuận"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Bao Cao Thong Ke Car Care"))
+        self.label.setText(_translate("MainWindow", "Từ ngày"))
+        self.label_2.setText(_translate("MainWindow", "Đến ngày"))
+        self.btn_xuatfile.setText(_translate("MainWindow", "Xuất file PDF/ Excel"))
+        self.btn_doanh_thu.setText(_translate("MainWindow", "Doanh thu và lợi nhuận"))
         self.btn_dich_vu.setText(_translate("MainWindow", "Dịch vụ bán chạy"))
         self.btn_nhan_vien.setText(_translate("MainWindow", "Hiệu suất nhân viên"))
         self.group_chart_bar_month.setTitle(_translate("MainWindow", "Biểu đồ cột: Doanh thu theo tháng"))
         self.lbl_chart_bar_month_desc.setText(_translate("MainWindow", "Thể hiện tổng doanh thu theo từng tháng trong khoảng thời gian đã lọc."))
         self.group_chart_pie_revenue.setTitle(_translate("MainWindow", "Biểu đồ tròn: Cơ cấu doanh thu theo nhóm dịch vụ"))
-        self.lbl_chart_pie_revenue_desc.setText(_translate("MainWindow", "Thể hiện tỷ trọng doanh thu của từng nhóm dịch vụ trong tổng doanh thu."))
+        self.lbl_chart_pie_revenue_desc.setText(_translate("MainWindow", "Thể hiện tỉ lệ doanh thu của từng nhóm dịch vụ trong tổng doanh thu."))
         self.lbl_summary.setText(_translate("MainWindow", "Tổng doanh thu: 0 VND"))
 
 

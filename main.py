@@ -6,7 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
                              QPushButton, QVBoxLayout, QHBoxLayout, QStackedWidget,
                              QFrame, QLabel)
 from PyQt5.QtCore import Qt, QTimer
