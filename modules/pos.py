@@ -17,6 +17,10 @@ from PyQt5.QtWidgets import (
 from ui.compiled.ui_bill_pos import Ui_BillPOSDialog
 from ui.compiled.ui_pos import Ui_POSForm
 from modules.integration_data import append_pos_sale
+from modules.invoices_store import append_invoice
+from modules.rbac_runtime import can_do
+from modules.audit_log import append_audit_log
+from modules.service_orders import find_latest_order_by_phone, attach_invoice_to_order, transition_order_status
 
 
 class InvoiceDialog(QDialog):
@@ -215,8 +219,10 @@ class POSWidget(QWidget):
         "GIAM50K": ("fixed", 50000),
     }
 
-    def __init__(self):
+    def __init__(self, current_role="Quản lý", current_user="system"):
         super().__init__()
+        self.current_role = current_role
+        self.current_user = current_user
         self.ui = Ui_POSForm()
         self.ui.setupUi(self)
         self.setObjectName("posRoot")
@@ -415,6 +421,9 @@ class POSWidget(QWidget):
             self._render_cart()
 
     def _apply_discount_code(self):
+        if not can_do(self.current_role, "pos.apply_discount"):
+            self._show_notice("Không có quyền", "Vai trò hiện tại không được áp mã giảm giá.", "warning")
+            return
         code = (self.txt_discount_code.text() or "").strip().upper()
         if not code:
             self._applied_discount_code = ""
@@ -508,6 +517,9 @@ class POSWidget(QWidget):
         self.lbl_total_v.setText(f"{self.format_money(grand_total)}")
 
     def _show_payment_invoice(self):
+        if not can_do(self.current_role, "pos.checkout"):
+            self._show_notice("Không có quyền", "Vai trò hiện tại không được thực hiện thanh toán.", "warning")
+            return
         if not self.cart_items:
             self._show_notice("Thanh toán", "Giỏ hàng đang trống.", "warning")
             return
@@ -582,7 +594,37 @@ class POSWidget(QWidget):
             "payment_method": paid_label,
             "items": invoice_data.get("lines", []),
         }
+        related_order_id = ""
+        latest_order = find_latest_order_by_phone(
+            invoice_data.get("customer_phone", ""),
+            statuses={"DONE", "INVOICED"},
+        )
+        if latest_order:
+            related_order_id = latest_order.get("order_id", "")
+            event["order_id"] = related_order_id
+            try:
+                # DONE -> INVOICED -> PAID (nếu đã INVOICED thì bỏ qua bước đầu).
+                if latest_order.get("status") == "DONE":
+                    transition_order_status(related_order_id, "INVOICED", actor=self.current_user, note="Sinh hóa đơn từ POS")
+                transition_order_status(related_order_id, "PAID", actor=self.current_user, note="Khách đã thanh toán")
+            except Exception:
+                pass
+            try:
+                attach_invoice_to_order(related_order_id, event.get("invoice_no", ""), actor=self.current_user)
+            except Exception:
+                pass
         append_pos_sale(event)
+        append_invoice(event)
+        append_audit_log(
+            "pos.checkout",
+            self.current_user,
+            {
+                "invoice_no": event.get("invoice_no"),
+                "total": event.get("grand_total", 0),
+                "payment_method": paid_label,
+                "order_id": related_order_id,
+            },
+        )
 
         # POS -> CRM: tự ghi nhận mua hàng/lịch sử.
         if self.crm_widget is not None and hasattr(self.crm_widget, "record_pos_invoice"):
@@ -612,6 +654,25 @@ class POSWidget(QWidget):
                     ten_khach_hang=invoice_data.get("customer_name", ""),
                     sdt=phone,
                 )
+                # Tạo tác vụ hậu mãi sau thanh toán để CSKH có dữ liệu follow-up.
+                try:
+                    from modules.chamsoc_kh_marketing import get_store
+
+                    store = get_store()
+                    store.data.setdefault("phan_hoi", []).append(
+                        {
+                            "id": f"auto-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                            "ten_kh": invoice_data.get("customer_name", ""),
+                            "loai": "Chăm sóc sau dịch vụ",
+                            "noi_dung": f"Tự động tạo sau thanh toán hóa đơn {invoice_data.get('invoice_no', '')}",
+                            "ngay_ghi": datetime.now().strftime("%Y-%m-%d"),
+                            "ngay_dich_vu": datetime.now().strftime("%Y-%m-%d"),
+                            "da_goi_tham": False,
+                        }
+                    )
+                    store.save()
+                except Exception:
+                    pass
         except Exception:
             pass
 

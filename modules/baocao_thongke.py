@@ -16,6 +16,9 @@ from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPdfWriter
 
 from modules.kho_vattu.data_store import nhap_kho_log, xuat_kho_log
 from modules.integration_data import get_pos_sales
+from modules.rbac_runtime import can_do
+from modules.audit_log import append_audit_log
+from modules.service_orders import list_orders
 from ui.compiled.ui_baocao_thongke import Ui_MainWindow
 
 class BaoCaoKho:
@@ -141,8 +144,10 @@ class ReportDonutChartWidget(QWidget):
 
 
 class BaoCaoWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, current_role="Quản lý", current_user="system"):
         super().__init__()
+        self.current_role = current_role
+        self.current_user = current_user
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self._current_headers = []
@@ -358,6 +363,9 @@ class BaoCaoWindow(QMainWindow):
         return "bao_cao_thong_ke"
 
     def export_excel(self):
+        if not can_do(self.current_role, "baocao.export_excel"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền xuất Excel.")
+            return
         if not self._current_headers or not self._current_rows:
             QMessageBox.warning(self, "Khong co du lieu", "Khong co du lieu de xuat Excel.")
             return
@@ -402,11 +410,15 @@ class BaoCaoWindow(QMainWindow):
                 ws.column_dimensions[col_letter].width = min(max_len + 3, 45)
 
             wb.save(path)
+            append_audit_log("baocao.export_excel", self.current_user, {"path": path})
             QMessageBox.information(self, "Thanh cong", f"Da xuat Excel:\n{path}")
         except Exception as e:
             QMessageBox.critical(self, "Loi", f"Khong the xuat Excel.\nChi tiet: {e}")
 
     def export_pdf(self):
+        if not can_do(self.current_role, "baocao.export_pdf"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền xuất PDF.")
+            return
         if not self._current_headers or not self._current_rows:
             QMessageBox.warning(self, "Khong co du lieu", "Khong co du lieu de xuat PDF.")
             return
@@ -457,6 +469,7 @@ class BaoCaoWindow(QMainWindow):
                 y += row_h
 
             painter.end()
+            append_audit_log("baocao.export_pdf", self.current_user, {"path": path})
             QMessageBox.information(self, "Thanh cong", f"Da xuat PDF:\n{path}")
         except Exception as e:
             QMessageBox.critical(self, "Loi", f"Khong the xuat PDF.\nChi tiet: {e}")
@@ -465,11 +478,19 @@ class BaoCaoWindow(QMainWindow):
         pos_sales = get_pos_sales()
         pos_count = len(pos_sales)
         pos_revenue = sum(int(x.get("grand_total", 0) or 0) for x in pos_sales)
+        orders = list_orders()
+        status_count = {}
+        for item in orders:
+            status = item.get("status", "UNKNOWN")
+            status_count[status] = status_count.get(status, 0) + 1
         rows = [
             ("Rửa xe + hút bụi", 120, "18.000.000"),
             ("Phủ ceramic", 34, "22.100.000"),
             ("Bảo dưỡng tổng quát", 15, "19.500.000"),
             ("Doanh thu POS tích hợp", pos_count, f"{pos_revenue:,}".replace(",", ".")),
+            ("Lệnh dịch vụ đang xử lý", status_count.get("IN_SERVICE", 0), "-"),
+            ("Lệnh dịch vụ đã hoàn tất", status_count.get("DONE", 0), "-"),
+            ("Lệnh dịch vụ đã thanh toán", status_count.get("PAID", 0), "-"),
         ]
         self._render_table(["Dịch vụ", "Số lượt", "Doanh thu (VND)"], rows)
         total = 59600000 + pos_revenue

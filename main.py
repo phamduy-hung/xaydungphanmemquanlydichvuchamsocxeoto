@@ -60,6 +60,27 @@ try:
 except Exception:
     QuanLyNhanVienWidget = None
 
+try:
+    from modules.hoa_don import HoaDonManagerWidget
+except Exception:
+    HoaDonManagerWidget = None
+
+try:
+    from modules.tiep_nhan_xe import TiepNhanXeWidget
+except Exception:
+    TiepNhanXeWidget = None
+
+try:
+    from modules.audit_log_view import AuditLogViewWidget
+except Exception:
+    AuditLogViewWidget = None
+
+try:
+    from modules.rbac_runtime import allowed_sections_for_role, can_access_section
+except Exception:
+    allowed_sections_for_role = None
+    can_access_section = None
+
 class MainWindow(QMainWindow):
     def __init__(self, auth_user=None):
         super().__init__()
@@ -109,12 +130,15 @@ class MainWindow(QMainWindow):
         self.nav_button_meta = []
         self._add_nav_button(sidebar_layout, "dashboard", "📊  TỔNG QUAN", self.show_dashboard)
         self._add_nav_button(sidebar_layout, "web", "📅  ĐẶT LỊCH WEB", self.show_web_bookings)
+        self._add_nav_button(sidebar_layout, "tiepnhan", "🛎️  TIẾP NHẬN XE", self.show_tiep_nhan_xe)
         self._add_nav_button(sidebar_layout, "crm", "👥  KHÁCH HÀNG (CRM)", self.show_crm)
         self._add_nav_button(sidebar_layout, "cskh", "💌  CHĂM SÓC KHÁCH HÀNG", self.show_chamsoc_kh)
         self._add_nav_button(sidebar_layout, "kho", "📦  KHO & VẬT TƯ", self.show_kho_vattu)
         self._add_nav_button(sidebar_layout, "baocao", "📈  BÁO CÁO THỐNG KÊ", self.show_baocao)
         self._add_nav_button(sidebar_layout, "pos", "💰  BÁN HÀNG & POS", self.show_pos)
         self._add_nav_button(sidebar_layout, "nhansu", "💼  QUẢN LÝ NHÂN SỰ", self.show_nhan_su)
+        self._add_nav_button(sidebar_layout, "invoices", "🧾  QUẢN LÝ HÓA ĐƠN", self.show_hoa_don)
+        self._add_nav_button(sidebar_layout, "audit", "📝  NHẬT KÝ HỆ THỐNG", self.show_audit)
         self._add_nav_button(sidebar_layout, "settings", "⚙️  CÀI ĐẶT HỆ THỐNG", self.show_settings)
         
         sidebar_layout.addStretch()
@@ -146,6 +170,12 @@ class MainWindow(QMainWindow):
         self.crm_lay.setContentsMargins(30, 30, 30, 30)
         self.stack.addWidget(self.page_crm)
 
+        # Page 2b: Tiep nhan xe
+        self.page_tiepnhan = QWidget()
+        self.tiepnhan_lay = QVBoxLayout(self.page_tiepnhan)
+        self.tiepnhan_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_tiepnhan)
+
         # Page 3: Cham soc KH
         self.page_cskh = QWidget()
         self.cskh_lay = QVBoxLayout(self.page_cskh)
@@ -175,6 +205,18 @@ class MainWindow(QMainWindow):
         self.nhansu_lay = QVBoxLayout(self.page_nhansu)
         self.nhansu_lay.setContentsMargins(30, 30, 30, 30)
         self.stack.addWidget(self.page_nhansu)
+
+        # Page 8b: Hoa don
+        self.page_hoadon = QWidget()
+        self.hoadon_lay = QVBoxLayout(self.page_hoadon)
+        self.hoadon_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_hoadon)
+
+        # Page 8c: Audit
+        self.page_audit = QWidget()
+        self.audit_lay = QVBoxLayout(self.page_audit)
+        self.audit_lay.setContentsMargins(30, 30, 30, 30)
+        self.stack.addWidget(self.page_audit)
 
         # Page 8: Settings
         self.page_set = QWidget()
@@ -309,11 +351,15 @@ class MainWindow(QMainWindow):
         return btn
 
     def _allowed_sections(self):
+        if callable(allowed_sections_for_role):
+            return allowed_sections_for_role(self.current_role)
         if self.current_role == "Lễ tân":
-            return {"dashboard", "web", "crm", "cskh", "pos"}
-        return {"dashboard", "web", "crm", "cskh", "kho", "baocao", "pos", "nhansu", "settings"}
+            return {"dashboard", "web", "tiepnhan", "crm", "cskh", "pos", "invoices"}
+        return {"dashboard", "web", "tiepnhan", "crm", "cskh", "kho", "baocao", "pos", "nhansu", "invoices", "audit", "settings"}
 
     def _can_access(self, section_key):
+        if callable(can_access_section):
+            return can_access_section(self.current_role, section_key)
         return section_key in self._allowed_sections()
 
     def _apply_role_visibility(self):
@@ -345,12 +391,15 @@ class MainWindow(QMainWindow):
     def _init_modules(self):
         self.dashboard_mod = None
         self.crm = None
+        self.tiepnhan = None
         self.web = None
         self.kho = None
         self.cskh_marketing = None
         self.baocao = None
         self.pos_mod = None
         self.nhansu_mod = None
+        self.hoadon_mod = None
+        self.audit_mod = None
         self.settings_mod = None
 
     def _ensure_dashboard(self):
@@ -371,7 +420,10 @@ class MainWindow(QMainWindow):
 
     def _ensure_crm(self):
         if self.crm is None and CustomerManagerWidget:
-            self.crm = CustomerManagerWidget()
+            self.crm = CustomerManagerWidget(
+                current_role=self.current_role,
+                current_user=self.auth_user.get("username", "system"),
+            )
             try:
                 self.crm.setWindowFlags(Qt.Widget)
             except Exception:
@@ -392,7 +444,11 @@ class MainWindow(QMainWindow):
 
     def _ensure_web_bookings(self):
         if self.web is None and WEB_BOOKINGS_AVAILABLE:
-            self.web = WebBookingsWidget(crm_widget=self.crm)
+            self.web = WebBookingsWidget(
+                crm_widget=self.crm,
+                current_role=self.current_role,
+                current_user=self.auth_user.get("username", "system"),
+            )
             try:
                 self.web.setWindowFlags(Qt.Widget)
             except Exception:
@@ -478,7 +534,10 @@ class MainWindow(QMainWindow):
 
     def _ensure_baocao(self):
         if self.baocao is None and BaoCaoWindow:
-            self.baocao = BaoCaoWindow()
+            self.baocao = BaoCaoWindow(
+                current_role=self.current_role,
+                current_user=self.auth_user.get("username", "system"),
+            )
             try:
                 self.baocao.setWindowFlags(Qt.Widget)
             except Exception:
@@ -488,7 +547,10 @@ class MainWindow(QMainWindow):
 
     def _ensure_pos(self):
         if self.pos_mod is None and POSWidget:
-            self.pos_mod = POSWidget()
+            self.pos_mod = POSWidget(
+                current_role=self.current_role,
+                current_user=self.auth_user.get("username", "system"),
+            )
             try:
                 self.pos_mod.setWindowFlags(Qt.Widget)
             except Exception:
@@ -521,6 +583,39 @@ class MainWindow(QMainWindow):
             self.nhansu_lay.addWidget(self.nhansu_mod)
         return self.nhansu_mod is not None
 
+    def _ensure_tiep_nhan(self):
+        if self.tiepnhan is None and TiepNhanXeWidget:
+            self.tiepnhan = TiepNhanXeWidget(current_user=self.auth_user.get("username", "system"))
+            try:
+                self.tiepnhan.setWindowFlags(Qt.Widget)
+            except Exception:
+                pass
+            self.tiepnhan_lay.addWidget(self.tiepnhan)
+        return self.tiepnhan is not None
+
+    def _ensure_hoa_don(self):
+        if self.hoadon_mod is None and HoaDonManagerWidget:
+            self.hoadon_mod = HoaDonManagerWidget(
+                current_role=self.current_role,
+                current_user=self.auth_user.get("username", "system"),
+            )
+            try:
+                self.hoadon_mod.setWindowFlags(Qt.Widget)
+            except Exception:
+                pass
+            self.hoadon_lay.addWidget(self.hoadon_mod)
+        return self.hoadon_mod is not None
+
+    def _ensure_audit(self):
+        if self.audit_mod is None and AuditLogViewWidget:
+            self.audit_mod = AuditLogViewWidget()
+            try:
+                self.audit_mod.setWindowFlags(Qt.Widget)
+            except Exception:
+                pass
+            self.audit_lay.addWidget(self.audit_mod)
+        return self.audit_mod is not None
+
     def _ensure_deferred(self, key: str, ensure_func):
         if getattr(self, key, None) is not None or key in self._module_loading:
             return
@@ -538,10 +633,13 @@ class MainWindow(QMainWindow):
         # Warm-up theo nhịp để giảm khựng khi mở tab lần đầu.
         self._warmup_queue = [
             lambda: self._ensure_deferred("crm", self._ensure_crm),
+            lambda: self._ensure_deferred("tiepnhan", self._ensure_tiep_nhan),
             lambda: self._ensure_deferred("kho", self._ensure_kho),
             lambda: self._ensure_deferred("baocao", self._ensure_baocao),
             lambda: self._ensure_deferred("pos_mod", self._ensure_pos),
             lambda: self._ensure_deferred("nhansu_mod", self._ensure_nhan_su),
+            lambda: self._ensure_deferred("hoadon_mod", self._ensure_hoa_don),
+            lambda: self._ensure_deferred("audit_mod", self._ensure_audit),
             lambda: self._ensure_deferred("settings_mod", self._ensure_settings),
         ]
         self._warmup_next()
@@ -588,11 +686,29 @@ class MainWindow(QMainWindow):
         else:
             self.show_placeholder("Không tìm thấy module Đặt Lịch Web")
 
-    def show_crm(self):
+    def show_tiep_nhan_xe(self):
+        if not self._can_access("tiepnhan"):
+            self._access_denied()
+            return
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
         if len(self.nav_buttons) > 2: self.nav_buttons[2].setChecked(True)
+        self.lbl_page_title.setText("Tiếp Nhận Xe / Lệnh Dịch Vụ")
+        if TiepNhanXeWidget:
+            self.stack.setCurrentWidget(self.page_tiepnhan)
+            if self.tiepnhan is None:
+                self._ensure_deferred("tiepnhan", self._ensure_tiep_nhan)
+            elif hasattr(self.tiepnhan, "refresh_data"):
+                self.tiepnhan.refresh_data()
+        else:
+            self.show_placeholder("Không tìm thấy module TIẾP NHẬN XE")
+
+    def show_crm(self):
+        self._last_user_action = time.monotonic()
+        self._set_web_polling(False)
+        self._reset_nav()
+        if len(self.nav_buttons) > 3: self.nav_buttons[3].setChecked(True)
         self.lbl_page_title.setText("Quản Lý Khách Hàng")
         if CustomerManagerWidget:
             self.stack.setCurrentWidget(self.page_crm)
@@ -605,7 +721,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 3: self.nav_buttons[3].setChecked(True)
+        if len(self.nav_buttons) > 4: self.nav_buttons[4].setChecked(True)
         self.lbl_page_title.setText("Chăm Sóc Khách Hàng")
         if ChamSocKhachHangVaMarketingWindow:
             self.stack.setCurrentWidget(self.page_cskh)
@@ -621,7 +737,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 4: self.nav_buttons[4].setChecked(True)
+        if len(self.nav_buttons) > 5: self.nav_buttons[5].setChecked(True)
         self.lbl_page_title.setText("Kho & Vật Tư")
         if KhoVatTuUI:
             self.stack.setCurrentWidget(self.page_kho)
@@ -637,7 +753,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 5: self.nav_buttons[5].setChecked(True)
+        if len(self.nav_buttons) > 6: self.nav_buttons[6].setChecked(True)
         self.lbl_page_title.setText("Báo Cáo & Thống Kê")
         if BaoCaoWindow:
             self.stack.setCurrentWidget(self.page_baocao)
@@ -650,7 +766,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 6: self.nav_buttons[6].setChecked(True)
+        if len(self.nav_buttons) > 7: self.nav_buttons[7].setChecked(True)
         self.lbl_page_title.setText("Bán Hàng & POS")
         if POSWidget:
             self.stack.setCurrentWidget(self.page_pos)
@@ -666,7 +782,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 8: self.nav_buttons[8].setChecked(True)
+        if len(self.nav_buttons) > 11: self.nav_buttons[11].setChecked(True)
         self.lbl_page_title.setText("Cài Đặt Hệ Thống")
         if SettingsWidget:
             self.stack.setCurrentWidget(self.page_set)
@@ -682,7 +798,7 @@ class MainWindow(QMainWindow):
         self._last_user_action = time.monotonic()
         self._set_web_polling(False)
         self._reset_nav()
-        if len(self.nav_buttons) > 7: self.nav_buttons[7].setChecked(True)
+        if len(self.nav_buttons) > 8: self.nav_buttons[8].setChecked(True)
         self.lbl_page_title.setText("Quản Lý Nhân Sự")
         if QuanLyNhanVienWidget:
             self.stack.setCurrentWidget(self.page_nhansu)
@@ -690,6 +806,42 @@ class MainWindow(QMainWindow):
                 self._ensure_deferred("nhansu_mod", self._ensure_nhan_su)
         else:
             self.show_placeholder("Không tìm thấy module QUẢN LÝ NHÂN SỰ")
+
+    def show_hoa_don(self):
+        if not self._can_access("invoices"):
+            self._access_denied()
+            return
+        self._last_user_action = time.monotonic()
+        self._set_web_polling(False)
+        self._reset_nav()
+        if len(self.nav_buttons) > 9: self.nav_buttons[9].setChecked(True)
+        self.lbl_page_title.setText("Quản Lý Hóa Đơn")
+        if HoaDonManagerWidget:
+            self.stack.setCurrentWidget(self.page_hoadon)
+            if self.hoadon_mod is None:
+                self._ensure_deferred("hoadon_mod", self._ensure_hoa_don)
+            elif hasattr(self.hoadon_mod, "refresh_data"):
+                self.hoadon_mod.refresh_data()
+        else:
+            self.show_placeholder("Không tìm thấy module QUẢN LÝ HÓA ĐƠN")
+
+    def show_audit(self):
+        if not self._can_access("audit"):
+            self._access_denied()
+            return
+        self._last_user_action = time.monotonic()
+        self._set_web_polling(False)
+        self._reset_nav()
+        if len(self.nav_buttons) > 10: self.nav_buttons[10].setChecked(True)
+        self.lbl_page_title.setText("Nhật Ký Hệ Thống")
+        if AuditLogViewWidget:
+            self.stack.setCurrentWidget(self.page_audit)
+            if self.audit_mod is None:
+                self._ensure_deferred("audit_mod", self._ensure_audit)
+            elif hasattr(self.audit_mod, "refresh_data"):
+                self.audit_mod.refresh_data()
+        else:
+            self.show_placeholder("Không tìm thấy module NHẬT KÝ HỆ THỐNG")
 
     def show_placeholder(self, title):
         self._set_web_polling(False)
