@@ -1,0 +1,43 @@
+{
+  "orders": [
+    {
+      "order_id": "SO20260430100229",
+      "created_at": "30/04/2026 10:02",
+      "status": "CHECKED_IN",
+      "customer_name": "A",
+      "customer_phone": "0999888777",
+      "plate": "29A-123456",
+      "services": [
+        "Rửa xe"
+      ],
+      "source": "desk",
+      "assigned_to": "",
+      "material_requests": [
+        {
+          "item_name": "Rửa xe",
+          "qty": 1,
+          "requested_at": "30/04/2026 10:02:54",
+          "exported": false,
+          "exported_at": ""
+        }
+      ],
+      "invoice_no": "",
+      "history": [
+        {
+          "at": "30/04/2026 10:02:29",
+          "from": "-",
+          "to": "CHECKED_IN",
+          "by": "admin",
+          "note": "Tạo lệnh dịch vụ"
+        },
+        {
+          "at": "30/04/2026 10:02:54",
+          "from": "CHECKED_IN",
+          "to": "CHECKED_IN",
+          "by": "admin",
+          "note": "Yêu cầu vật tư: Rửa xe x1"
+        }
+      ]
+    }
+  ]
+}

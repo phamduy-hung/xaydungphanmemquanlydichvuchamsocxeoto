@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
                              QFrame, QLabel, QDialog, QLineEdit, QMessageBox, QToolButton)
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QPixmap, QIcon, QPainter, QPen, QColor, QPainterPath
+from modules.audit_log import append_audit_log
 
 try:
     from modules.qlkhachhang import CustomerManagerWidget
@@ -372,6 +373,11 @@ class MainWindow(QMainWindow):
 
     def _logout(self):
         # Đóng giao diện quản lý hiện tại trước để chỉ còn màn đăng nhập.
+        append_audit_log(
+            "auth.logout",
+            self.auth_user.get("username", "system"),
+            {"role": self.current_role},
+        )
         self.hide()
         auth_user = show_login_dialog()
         if auth_user is None:
@@ -1081,8 +1087,10 @@ def show_login_dialog():
                 if role not in ("Quản lý", "Lễ tân"):
                     role = "Lễ tân"
                 auth["user"] = {"username": username, "role": role}
+                append_audit_log("auth.login_success", username, {"role": role})
                 dialog.accept()
                 return
+        append_audit_log("auth.login_failed", username or "unknown", {})
         lbl_error.setText("Sai tên đăng nhập hoặc mật khẩu.")
         lbl_error.setVisible(True)
 
