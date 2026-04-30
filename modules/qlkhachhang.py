@@ -17,6 +17,8 @@ if hasattr(sys.stdout, "reconfigure"):
 from ui.compiled.ui_qlkhachhang import Ui_Form as Ui_Form_QLKhachHang
 from ui.compiled.ui_suathongtinKH import Ui_Dialog as Ui_Dialog_SuaThongTinKH
 from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
+from modules.rbac_runtime import can_do
+from modules.audit_log import append_audit_log
 
 # Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
 CLASS_NEW = "Khách mới"
@@ -180,8 +182,10 @@ class EditCustomerDialog(QDialog):
 
 
 class CustomerManagerWidget(QWidget):
-    def __init__(self):
+    def __init__(self, current_role="Quản lý", current_user="system"):
         super().__init__()
+        self.current_role = current_role
+        self.current_user = current_user
         self.ui = Ui_Form_QLKhachHang()
         self.ui.setupUi(self)
 
@@ -449,13 +453,20 @@ class CustomerManagerWidget(QWidget):
         return None
 
     def open_add_dialog(self):
+        if not can_do(self.current_role, "crm.create"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền thêm khách hàng.")
+            return
         dialog = AddCustomerDialog(self)
         if dialog.exec_() and dialog.saved_customer_data:
             new_customer = self._append_customer(dialog.saved_customer_data)
             self.service_history_map.setdefault(new_customer["id"], [])
             self.refresh_customer_table()
+            append_audit_log("crm.create_customer", self.current_user, {"customer_id": new_customer["id"]})
 
     def open_edit_dialog(self):
+        if not can_do(self.current_role, "crm.edit"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền sửa khách hàng.")
+            return
         customer_id = self._get_selected_customer_id()
         if customer_id is None:
             QMessageBox.warning(self, "Chưa chọn khách hàng", "Vui lòng chọn khách hàng cần sửa.")
@@ -475,8 +486,12 @@ class CustomerManagerWidget(QWidget):
             self.customers[customer_index] = updated
             self.refresh_customer_table()
             self._select_customer_by_id(customer_id)
+            append_audit_log("crm.edit_customer", self.current_user, {"customer_id": customer_id})
 
     def delete_customer(self):
+        if not can_do(self.current_role, "crm.delete"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền xóa khách hàng.")
+            return
         customer_id = self._get_selected_customer_id()
         if customer_id is None:
             QMessageBox.warning(self, "Chưa chọn khách hàng", "Vui lòng chọn khách hàng cần xóa.")
@@ -499,6 +514,7 @@ class CustomerManagerWidget(QWidget):
         self.customers.pop(customer_index)
         self.service_history_map.pop(customer_id, None)
         self.refresh_customer_table()
+        append_audit_log("crm.delete_customer", self.current_user, {"customer_id": customer_id})
 
     def _select_customer_by_id(self, customer_id):
         table = self.ui.tbl_customers

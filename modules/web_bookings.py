@@ -22,6 +22,9 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QAbstractItemView
 )
 from modules.integration_data import append_web_accept
+from modules.service_orders import create_order_from_web_booking
+from modules.rbac_runtime import can_do
+from modules.audit_log import append_audit_log
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -61,10 +64,12 @@ class WebBookingsWidget(QWidget):
     booking_accepted = pyqtSignal(dict)
     refresh_data_ready = pyqtSignal(object, object)
 
-    def __init__(self, crm_widget=None, parent=None):
+    def __init__(self, crm_widget=None, current_role="Quản lý", current_user="system", parent=None):
         super().__init__(parent)
         self.setObjectName("webBookingRoot")
         self.crm_widget = crm_widget   # Tham chiếu tới CRM widget nếu có
+        self.current_role = current_role
+        self.current_user = current_user
         self._pending_data = []        # Cache danh sách pending
         self._all_data = []            # Cache tất cả đơn
         self._api_online = False
@@ -493,6 +498,9 @@ class WebBookingsWidget(QWidget):
         return self._pending_data[row]
 
     def _accept_selected(self):
+        if not can_do(self.current_role, "web.accept"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền tiếp nhận đơn.")
+            return
         if not self._api_online:
             QMessageBox.warning(self, "API Offline", "Không thể kết nối API server.\nVui lòng chạy: python3 server/app.py")
             return
@@ -506,6 +514,7 @@ class WebBookingsWidget(QWidget):
             # Chuyển dữ liệu sang CRM nếu có
             if self.crm_widget:
                 self._push_to_crm(booking)
+            create_order_from_web_booking(booking, actor=self.current_user)
             append_web_accept(
                 {
                     "booking_id": booking.get("id"),
@@ -517,6 +526,11 @@ class WebBookingsWidget(QWidget):
                 }
             )
             self._do_refresh()
+            append_audit_log(
+                "web.accept_booking",
+                self.current_user,
+                {"booking_id": booking.get("id"), "phone": booking.get("sdt", "")},
+            )
             QMessageBox.information(
                 self, "Thành công",
                 f"✅ Đã tiếp nhận đơn của khách: {booking['ho_ten']}\n"
@@ -526,6 +540,9 @@ class WebBookingsWidget(QWidget):
             QMessageBox.critical(self, "Lỗi", "Không thể cập nhật trạng thái. Kiểm tra API server.")
 
     def _reject_selected(self):
+        if not can_do(self.current_role, "web.reject"):
+            QMessageBox.warning(self, "Không có quyền", "Vai trò hiện tại không có quyền từ chối đơn.")
+            return
         if not self._api_online:
             QMessageBox.warning(self, "API Offline", "Không thể kết nối API server.")
             return
@@ -545,6 +562,11 @@ class WebBookingsWidget(QWidget):
         result = _http_patch(f"{API_BASE}/bookings/{booking['id']}/reject")
         if result and result.get("success"):
             self._do_refresh()
+            append_audit_log(
+                "web.reject_booking",
+                self.current_user,
+                {"booking_id": booking.get("id"), "phone": booking.get("sdt", "")},
+            )
         else:
             QMessageBox.critical(self, "Lỗi", "Không thể cập nhật trạng thái.")
 

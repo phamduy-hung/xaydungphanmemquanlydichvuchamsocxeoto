@@ -29,6 +29,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ui.compiled.ui_qlnhansu import Ui_Form as Ui_Form_QLNhanSu
 from modules.integration_data import get_pos_sales
+from modules.rbac_runtime import FUNCTION_TO_SECTION_KEY, save_section_permissions
+from modules.audit_log import append_audit_log
 
 
 class EmployeeDialog(QDialog):
@@ -114,13 +116,16 @@ class QuanLyNhanVienWidget(QWidget):
         self.permission_matrix = [
             ("Tổng quan/KPI", "Có", "Có", "Xem báo cáo vận hành cơ bản"),
             ("Đặt lịch web", "Có", "Có", "Lễ tân nhận/xử lý lịch đặt từ website"),
+            ("Tiếp nhận xe/Lệnh dịch vụ", "Có", "Có", "Lễ tân tiếp nhận và theo dõi lệnh dịch vụ"),
             ("Khách hàng (CRM)", "Có", "Có", "Lễ tân cập nhật hồ sơ và lịch sử khách hàng"),
             ("Chăm sóc khách hàng", "Có", "Có", "Lễ tân chăm sóc sau dịch vụ theo kịch bản"),
             ("Bán hàng POS", "Có", "Có", "Lễ tân được tạo đơn, Quản lý toàn quyền"),
+            ("Quản lý hóa đơn", "Có", "Có", "Xem và xuất danh sách hóa đơn"),
             ("Kho & Vật tư", "Có", "Không", "Chỉ Quản lý được chỉnh sửa tồn kho"),
             ("Báo cáo thống kê", "Có", "Không", "Lễ tân không xem báo cáo tài chính"),
             ("Cài đặt hệ thống", "Có", "Không", "Cấu hình hệ thống chỉ cho Quản lý"),
             ("Quản lý nhân sự", "Có", "Không", "Quản lý chấm công, phân ca, RBAC"),
+            ("Nhật ký hệ thống", "Có", "Không", "Theo dõi các thao tác quan trọng trong hệ thống"),
         ]
 
         self._setup_tables()
@@ -790,6 +795,15 @@ class QuanLyNhanVienWidget(QWidget):
                 return
             updated.append((fn, manager, receptionist, desc))
         self.permission_matrix = updated
+        section_permissions = {"Quản lý": {}, "Lễ tân": {}}
+        for fn, manager, receptionist, _ in updated:
+            key = FUNCTION_TO_SECTION_KEY.get(fn)
+            if not key:
+                continue
+            section_permissions["Quản lý"][key] = manager == "Có"
+            section_permissions["Lễ tân"][key] = receptionist == "Có"
+        save_section_permissions(section_permissions)
+        append_audit_log("rbac.update_matrix", "quan_ly_nhan_su", {"rows": len(updated)})
         self._editing_permissions = False
         self.btn_save_permissions.setEnabled(False)
         self.btn_edit_permissions.setText("Sửa quyền hạn")
