@@ -1,51 +1,65 @@
-import json
 from datetime import datetime
-from pathlib import Path
 
-DATA_PATH = Path("data/integration_events.json")
+import json
 
-
-def _default_payload():
-    return {"pos_sales": [], "web_accepts": []}
+from database.connection import ensure_mysql_ready, execute, fetch_all
 
 
 def load_payload():
-    if not DATA_PATH.exists():
-        return _default_payload()
-    try:
-        raw = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-        if not isinstance(raw, dict):
-            return _default_payload()
-        data = _default_payload()
-        data.update(raw)
-        if not isinstance(data.get("pos_sales"), list):
-            data["pos_sales"] = []
-        if not isinstance(data.get("web_accepts"), list):
-            data["web_accepts"] = []
-        return data
-    except Exception:
-        return _default_payload()
+    ensure_mysql_ready()
+    pos_rows = fetch_all(
+        "SELECT payload_json, created_at FROM integration_events WHERE event_type='pos_sale' ORDER BY id ASC"
+    )
+    web_rows = fetch_all(
+        "SELECT payload_json, created_at FROM integration_events WHERE event_type='web_accept' ORDER BY id ASC"
+    )
 
+    def _norm(rows, field):
+        out = []
+        for r in rows:
+            payload = r.get("payload_json") or {}
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except Exception:
+                    payload = {}
+            payload = dict(payload)
+            if field not in payload:
+                created = r.get("created_at")
+                payload[field] = created.strftime("%d/%m/%Y %H:%M") if created else ""
+            out.append(payload)
+        return out
 
-def save_payload(payload):
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DATA_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "pos_sales": _norm(pos_rows, "created_at"),
+        "web_accepts": _norm(web_rows, "accepted_at"),
+    }
 
 
 def append_pos_sale(event: dict):
-    payload = load_payload()
-    event = dict(event)
-    event.setdefault("created_at", datetime.now().strftime("%d/%m/%Y %H:%M"))
-    payload["pos_sales"].append(event)
-    save_payload(payload)
+    ensure_mysql_ready()
+    data = dict(event or {})
+    data.setdefault("created_at", datetime.now().strftime("%d/%m/%Y %H:%M"))
+    execute(
+        """
+        INSERT INTO integration_events(event_type, payload_json, created_at)
+        VALUES ('pos_sale', %s, NOW())
+        """,
+        (json.dumps(data, ensure_ascii=False),),
+    )
 
 
 def append_web_accept(event: dict):
-    payload = load_payload()
-    event = dict(event)
-    event.setdefault("accepted_at", datetime.now().strftime("%d/%m/%Y %H:%M"))
-    payload["web_accepts"].append(event)
-    save_payload(payload)
+    ensure_mysql_ready()
+    data = dict(event or {})
+    data.setdefault("accepted_at", datetime.now().strftime("%d/%m/%Y %H:%M"))
+    execute(
+        """
+        INSERT INTO integration_events(event_type, payload_json, created_at)
+        VALUES ('web_accept', %s, NOW())
+        """,
+        (json.dumps(data, ensure_ascii=False),),
+    )
 
 
 def get_pos_sales():

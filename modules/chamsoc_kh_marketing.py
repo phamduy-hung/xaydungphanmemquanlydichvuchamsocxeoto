@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 import uuid
@@ -22,9 +21,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ui.compiled.ui_chamsocKH import Ui_Form as Ui_ChamSocKHForm
 from ui.compiled.ui_them_sua_voucher import Ui_Form as Ui_ThemSuaVoucherForm
+from database.connection import ensure_mysql_ready, execute, fetch_all, fetch_one
 
 DATA_DIR = PROJECT_ROOT / "data"
-DATA_FILE = DATA_DIR / "cham_soc_kh_marketing.json"
 
 TIER_DONG = "Đồng"
 TIER_BAC = "Bạc"
@@ -125,18 +124,10 @@ class ChamSocMarketingStore:
         self.data: dict = {}
 
     def load(self) -> None:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        if not DATA_FILE.is_file():
-            self._default_data()
-            self.save()
+        ensure_mysql_ready()
+        if self._load_from_mysql():
             return
-        try:
-            raw = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                self.data = raw
-                self._migrate_vouchers()
-        except (json.JSONDecodeError, OSError):
-            self._default_data()
+        self._default_data()
         self.save()
 
     def _default_data(self) -> None:
@@ -210,8 +201,268 @@ class ChamSocMarketingStore:
             v.pop("con_lai", None)
 
     def save(self) -> None:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        DATA_FILE.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        ensure_mysql_ready()
+        self._save_to_mysql()
+
+    def _load_from_mysql(self) -> bool:
+        try:
+            settings = fetch_one(
+                """
+                SELECT diem_moi_1trieu, nguong_dong, nguong_bac, nguong_vang, nguong_vip,
+                       sms, zalo, email, mau_cam_on, mau_sinh_nhat
+                FROM cskh_settings
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+            customer_rows = fetch_all(
+                """
+                SELECT id, full_name, phone, points, tier, discount_percent
+                FROM customers
+                ORDER BY id ASC
+                """
+            )
+            voucher_rows = fetch_all(
+                """
+                SELECT id, voucher_code, campaign_name, voucher_type, voucher_value, start_date, end_date, note_text
+                FROM customer_care_vouchers
+                ORDER BY id ASC
+                """
+            )
+            logs = fetch_all(
+                """
+                SELECT sent_at, channel_text, summary_text, message_type
+                FROM cskh_message_logs
+                ORDER BY id DESC
+                LIMIT 500
+                """
+            )
+            reminders = fetch_all(
+                """
+                SELECT reminder_uid, service_name, remind_after_months, created_date
+                FROM cskh_reminders
+                ORDER BY id ASC
+                """
+            )
+            feedbacks = fetch_all(
+                """
+                SELECT feedback_uid, customer_name, feedback_type, feedback_text, created_date, service_date, called
+                FROM cskh_feedback
+                ORDER BY id ASC
+                """
+            )
+            if not settings and not customer_rows and not voucher_rows and not logs and not reminders and not feedbacks:
+                return False
+
+            loy = {
+                "diem_moi_1trieu": int((settings or {}).get("diem_moi_1trieu") or 10),
+                "nguong_dong": int((settings or {}).get("nguong_dong") or 0),
+                "nguong_bac": int((settings or {}).get("nguong_bac") or 500),
+                "nguong_vang": int((settings or {}).get("nguong_vang") or 1500),
+                "nguong_vip": int((settings or {}).get("nguong_vip") or 5000),
+                "khach": [],
+            }
+            for c in customer_rows:
+                loy["khach"].append(
+                    {
+                        "id": str(c.get("id", "")),
+                        "ten": c.get("full_name", ""),
+                        "sdt": c.get("phone", ""),
+                        "diem": int(c.get("points") or 0),
+                        "hang": c.get("tier", TIER_DONG),
+                        "chiet_khau": int(float(c.get("discount_percent") or 0)),
+                    }
+                )
+            vouchers = []
+            for v in voucher_rows:
+                vouchers.append(
+                    {
+                        "id": str(v.get("id")),
+                        "ma": v.get("voucher_code", ""),
+                        "ten_chuong_trinh": v.get("campaign_name", ""),
+                        "loai": v.get("voucher_type", LOAI_PERCENT),
+                        "gia_tri": int(float(v.get("voucher_value") or 0)),
+                        "ngay_bd": v["start_date"].isoformat() if v.get("start_date") else _today_iso(),
+                        "ngay_kt": v["end_date"].isoformat() if v.get("end_date") else _today_iso(),
+                        "ghi_chu": v.get("note_text", ""),
+                    }
+                )
+            thong_bao = {
+                "sms": bool((settings or {}).get("sms", True)),
+                "zalo": bool((settings or {}).get("zalo", False)),
+                "email": bool((settings or {}).get("email", False)),
+                "mau_cam_on": (settings or {}).get("mau_cam_on", ""),
+                "mau_sinh_nhat": (settings or {}).get("mau_sinh_nhat", ""),
+            }
+            nhat_ky_gui = [
+                {
+                    "thoi_gian": r["sent_at"].strftime("%Y-%m-%d %H:%M") if r.get("sent_at") else "",
+                    "kenh": r.get("channel_text", ""),
+                    "tom_tat": r.get("summary_text", ""),
+                    "loai": r.get("message_type", ""),
+                }
+                for r in logs
+            ]
+            nhac_lich = [
+                {
+                    "id": r.get("reminder_uid", ""),
+                    "dich_vu": r.get("service_name", ""),
+                    "sau_thang": int(r.get("remind_after_months") or 0),
+                    "ngay_tao": r["created_date"].isoformat() if r.get("created_date") else _today_iso(),
+                }
+                for r in reminders
+            ]
+            phan_hoi = [
+                {
+                    "id": r.get("feedback_uid", ""),
+                    "ten_kh": r.get("customer_name", ""),
+                    "loai": r.get("feedback_type", ""),
+                    "noi_dung": r.get("feedback_text", ""),
+                    "ngay_ghi": r["created_date"].isoformat() if r.get("created_date") else _today_iso(),
+                    "ngay_dich_vu": r["service_date"].isoformat() if r.get("service_date") else _today_iso(),
+                    "da_goi_tham": bool(r.get("called")),
+                }
+                for r in feedbacks
+            ]
+            self.data = {
+                "loyalty": loy,
+                "vouchers": vouchers,
+                "thong_bao": thong_bao,
+                "nhat_ky_gui": nhat_ky_gui,
+                "nhac_lich": nhac_lich,
+                "phan_hoi": phan_hoi,
+            }
+            self._migrate_vouchers()
+            return True
+        except Exception:
+            return False
+
+    def _save_to_mysql(self) -> None:
+        loy = self.data.get("loyalty", {})
+        tb = self.data.get("thong_bao", {})
+        execute("DELETE FROM cskh_settings")
+        execute(
+            """
+            INSERT INTO cskh_settings(
+                diem_moi_1trieu, nguong_dong, nguong_bac, nguong_vang, nguong_vip,
+                sms, zalo, email, mau_cam_on, mau_sinh_nhat
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                int(loy.get("diem_moi_1trieu", 10)),
+                int(loy.get("nguong_dong", 0)),
+                int(loy.get("nguong_bac", 500)),
+                int(loy.get("nguong_vang", 1500)),
+                int(loy.get("nguong_vip", 5000)),
+                1 if tb.get("sms", True) else 0,
+                1 if tb.get("zalo", False) else 0,
+                1 if tb.get("email", False) else 0,
+                tb.get("mau_cam_on", ""),
+                tb.get("mau_sinh_nhat", ""),
+            ),
+        )
+
+        # Đồng bộ điểm/hạng khách thân thiết vào bảng customers.
+        for kh in loy.get("khach", []) or []:
+            phone = str(kh.get("sdt", "")).strip()
+            name = str(kh.get("ten", "")).strip() or f"Khách #{kh.get('id', '')}"
+            row = fetch_one("SELECT id FROM customers WHERE phone=%s", (phone,)) if phone else None
+            if row:
+                execute(
+                    """
+                    UPDATE customers
+                    SET full_name=%s, points=%s, tier=%s, discount_percent=%s
+                    WHERE id=%s
+                    """,
+                    (
+                        name,
+                        int(kh.get("diem", 0)),
+                        kh.get("hang", TIER_DONG),
+                        float(kh.get("chiet_khau", 0)),
+                        row["id"],
+                    ),
+                )
+            else:
+                execute(
+                    """
+                    INSERT INTO customers(customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
+                    VALUES (%s, %s, %s, '', %s, %s, %s, 0)
+                    """,
+                    (
+                        f"KH{str(kh.get('id', uuid.uuid4()))[:8]}",
+                        name,
+                        phone,
+                        int(kh.get("diem", 0)),
+                        kh.get("hang", TIER_DONG),
+                        float(kh.get("chiet_khau", 0)),
+                    ),
+                )
+
+        execute("DELETE FROM customer_care_vouchers")
+        for v in self.data.get("vouchers", []) or []:
+            execute(
+                """
+                INSERT INTO customer_care_vouchers(voucher_code, campaign_name, voucher_type, voucher_value, start_date, end_date, note_text)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    v.get("ma", ""),
+                    v.get("ten_chuong_trinh", ""),
+                    v.get("loai", LOAI_PERCENT),
+                    float(v.get("gia_tri", 0)),
+                    v.get("ngay_bd", _today_iso()),
+                    v.get("ngay_kt", _today_iso()),
+                    v.get("ghi_chu", ""),
+                ),
+            )
+
+        execute("DELETE FROM cskh_message_logs")
+        for r in (self.data.get("nhat_ky_gui", []) or [])[:500]:
+            execute(
+                """
+                INSERT INTO cskh_message_logs(sent_at, channel_text, summary_text, message_type)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    r.get("thoi_gian", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                    r.get("kenh", ""),
+                    r.get("tom_tat", ""),
+                    r.get("loai", ""),
+                ),
+            )
+
+        execute("DELETE FROM cskh_reminders")
+        for r in self.data.get("nhac_lich", []) or []:
+            execute(
+                """
+                INSERT INTO cskh_reminders(reminder_uid, service_name, remind_after_months, created_date)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    r.get("id", str(uuid.uuid4())),
+                    r.get("dich_vu", ""),
+                    int(r.get("sau_thang", 3)),
+                    r.get("ngay_tao", _today_iso()),
+                ),
+            )
+
+        execute("DELETE FROM cskh_feedback")
+        for r in self.data.get("phan_hoi", []) or []:
+            execute(
+                """
+                INSERT INTO cskh_feedback(feedback_uid, customer_name, feedback_type, feedback_text, created_date, service_date, called)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    r.get("id", str(uuid.uuid4())),
+                    r.get("ten_kh", ""),
+                    r.get("loai", ""),
+                    r.get("noi_dung", ""),
+                    r.get("ngay_ghi", _today_iso()),
+                    r.get("ngay_dich_vu", _today_iso()),
+                    1 if r.get("da_goi_tham") else 0,
+                ),
+            )
 
     def cap_nhat_khach_sau_diem(self, kh: dict, loy: dict) -> None:
         hang = tinh_hang_theo_diem(

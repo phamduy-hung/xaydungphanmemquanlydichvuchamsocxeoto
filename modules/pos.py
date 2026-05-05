@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPainter, QPixmap, QColor, QKeySequence
@@ -21,6 +20,8 @@ from modules.invoices_store import append_invoice
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
 from modules.service_orders import find_latest_order_by_phone, attach_invoice_to_order, transition_order_status
+from database.connection import ensure_mysql_ready
+from database.models import load_system_settings
 
 
 class InvoiceDialog(QDialog):
@@ -746,21 +747,14 @@ class POSWidget(QWidget):
         box.exec_()
 
     def _load_vat_percent(self) -> float:
-        config_path = Path("data/system_settings.json")
-        if config_path.exists():
-            try:
-                import json
-
-                payload = json.loads(config_path.read_text(encoding="utf-8"))
-                raw = payload.get("default_vat") or payload.get("vat_percent")
-                if raw is not None:
-                    return self._parse_percent(raw, default=10.0)
-            except Exception:
-                pass
+        ensure_mysql_ready()
+        payload = load_system_settings() or {}
+        raw = payload.get("default_vat") or payload.get("vat_percent")
+        if raw is not None:
+            return self._parse_percent(raw, default=10.0)
         return 10.0
 
     def _load_payment_info(self):
-        config_path = Path("data/system_settings.json")
         default = {
             "bank_name": "MB Bank",
             "bank_account_number": "123456789",
@@ -769,19 +763,13 @@ class POSWidget(QWidget):
             "qr_payload": "PROCARE_QR",
             "qr_image_path": "",
         }
-        if not config_path.exists():
-            return default
-        try:
-            import json
-
-            payload = json.loads(config_path.read_text(encoding="utf-8"))
-            result = dict(default)
-            for key in default:
-                if payload.get(key):
-                    result[key] = payload.get(key)
-            return result
-        except Exception:
-            return default
+        ensure_mysql_ready()
+        payload = load_system_settings() or {}
+        result = dict(default)
+        for key in default:
+            if payload.get(key):
+                result[key] = payload.get(key)
+        return result
 
     @staticmethod
     def _parse_percent(raw, default=10.0):

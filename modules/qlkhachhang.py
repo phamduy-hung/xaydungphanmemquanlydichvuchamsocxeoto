@@ -19,6 +19,7 @@ from ui.compiled.ui_suathongtinKH import Ui_Dialog as Ui_Dialog_SuaThongTinKH
 from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
+from database.connection import ensure_mysql_ready, execute, fetch_all
 
 # Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
 CLASS_NEW = "Khách mới"
@@ -31,6 +32,18 @@ def _apply_vip_rule(customer):
     """Tổng chi tiêu > 50 triệu: bắt buộc phân loại VIP."""
     if int(customer.get("tong_chi_tieu", 0)) > VIP_THRESHOLD:
         customer["phan_loai"] = CLASS_VIP
+
+
+def _to_mysql_date(value: str):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    return None
 
 
 class AddCustomerDialog(QDialog):
@@ -196,9 +209,16 @@ class CustomerManagerWidget(QWidget):
 
         self._setup_tables()
         self._apply_dark_style()
-        self._seed_demo_data()
+        self._load_or_seed_data()
         self._setup_signals()
         self.refresh_customer_table()
+
+    def _load_or_seed_data(self):
+        ensure_mysql_ready()
+        if self._load_from_mysql():
+            return
+        self._seed_demo_data()
+        self._save_all_to_mysql()
 
     def _setup_tables(self):
         # Clear legacy styling
@@ -382,6 +402,99 @@ class CustomerManagerWidget(QWidget):
         self.next_customer_id += 1
         return customer
 
+    def _load_from_mysql(self):
+        try:
+            rows = fetch_all(
+                """
+                SELECT id, full_name, phone, vehicle_plate, tier, total_spent
+                FROM customers
+                ORDER BY id ASC
+                """
+            )
+            self.customers = []
+            self.service_history_map = {}
+            max_id = 0
+            for r in rows:
+                cid = int(r.get("id") or 0)
+                max_id = max(max_id, cid)
+                customer = {
+                    "id": cid,
+                    "ten": r.get("full_name", ""),
+                    "sdt": r.get("phone", ""),
+                    "hang_xe": "",
+                    "bien_so": r.get("vehicle_plate", ""),
+                    "phan_loai": r.get("tier", CLASS_NEW),
+                    "tong_chi_tieu": int(float(r.get("total_spent") or 0)),
+                    "ghi_chu": "",
+                }
+                if customer["phan_loai"] not in (CLASS_NEW, CLASS_RETURN, CLASS_VIP):
+                    customer["phan_loai"] = CLASS_VIP if customer["tong_chi_tieu"] > VIP_THRESHOLD else CLASS_RETURN
+                self.customers.append(customer)
+            self.next_customer_id = max_id + 1 if max_id else 1
+
+            history_rows = fetch_all(
+                """
+                SELECT customer_id, service_date, car_model, plate_no, service_name, amount, technician
+                FROM crm_service_history
+                ORDER BY id ASC
+                """
+            )
+            for h in history_rows:
+                cid = int(h.get("customer_id") or 0)
+                if cid <= 0:
+                    continue
+                self.service_history_map.setdefault(cid, []).append(
+                    {
+                        "ngay": h["service_date"].strftime("%Y-%m-%d") if h.get("service_date") else "",
+                        "hang_xe": h.get("car_model", ""),
+                        "bien_so": h.get("plate_no", ""),
+                        "dich_vu": h.get("service_name", ""),
+                        "tong_tien": int(float(h.get("amount") or 0)),
+                        "ktv": h.get("technician", ""),
+                    }
+                )
+            return bool(self.customers)
+        except Exception:
+            return False
+
+    def _save_all_to_mysql(self):
+        ensure_mysql_ready()
+        execute("DELETE FROM crm_service_history")
+        execute("DELETE FROM customers")
+        for c in self.customers:
+            execute(
+                """
+                INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
+                VALUES (%s, %s, %s, %s, %s, 0, %s, 0, %s)
+                """,
+                (
+                    int(c["id"]),
+                    f"KH{int(c['id']):03d}",
+                    c.get("ten", ""),
+                    c.get("sdt", ""),
+                    c.get("bien_so", ""),
+                    c.get("phan_loai", CLASS_NEW),
+                    float(c.get("tong_chi_tieu", 0)),
+                ),
+            )
+        for cid, rows in self.service_history_map.items():
+            for h in rows:
+                execute(
+                    """
+                    INSERT INTO crm_service_history(customer_id, service_date, car_model, plate_no, service_name, amount, technician)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        int(cid),
+                        _to_mysql_date(h.get("ngay", "")),
+                        h.get("hang_xe", ""),
+                        h.get("bien_so", ""),
+                        h.get("dich_vu", ""),
+                        float(h.get("tong_tien", 0)),
+                        h.get("ktv", ""),
+                    ),
+                )
+
     def _format_currency(self, value):
         return f"{int(value):,}".replace(",", ".")
 
@@ -460,6 +573,7 @@ class CustomerManagerWidget(QWidget):
         if dialog.exec_() and dialog.saved_customer_data:
             new_customer = self._append_customer(dialog.saved_customer_data)
             self.service_history_map.setdefault(new_customer["id"], [])
+            self._save_all_to_mysql()
             self.refresh_customer_table()
             append_audit_log("crm.create_customer", self.current_user, {"customer_id": new_customer["id"]})
 
@@ -484,6 +598,7 @@ class CustomerManagerWidget(QWidget):
             updated = dialog.saved_customer_data
             _apply_vip_rule(updated)
             self.customers[customer_index] = updated
+            self._save_all_to_mysql()
             self.refresh_customer_table()
             self._select_customer_by_id(customer_id)
             append_audit_log("crm.edit_customer", self.current_user, {"customer_id": customer_id})
@@ -513,6 +628,7 @@ class CustomerManagerWidget(QWidget):
 
         self.customers.pop(customer_index)
         self.service_history_map.pop(customer_id, None)
+        self._save_all_to_mysql()
         self.refresh_customer_table()
         append_audit_log("crm.delete_customer", self.current_user, {"customer_id": customer_id})
 
@@ -597,6 +713,7 @@ class CustomerManagerWidget(QWidget):
                 "ktv": "POS",
             }
         )
+        self._save_all_to_mysql()
         self.refresh_customer_table()
 
 

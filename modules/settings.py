@@ -1,8 +1,7 @@
-import json
-from pathlib import Path
-
 from PyQt5.QtWidgets import QWidget, QMessageBox, QFileDialog
 
+from database.connection import ensure_mysql_ready
+from database.models import load_system_settings, upsert_system_settings
 from ui.compiled.ui_settings import Ui_Form as Ui_Form_Settings
 
 
@@ -41,7 +40,6 @@ class SettingsWidget(QWidget):
         self.ui.settingsLabel_qr_image.setObjectName("settingsLabel")
         self.ui.btn_browse_qr_image.setObjectName("btnSecondary")
 
-        self.settings_path = Path("data/system_settings.json")
         self.ui.btnSaveSettings.clicked.connect(self._save_settings)
         self.ui.btn_browse_qr_image.clicked.connect(self._browse_qr_image)
         self._load_settings()
@@ -49,11 +47,9 @@ class SettingsWidget(QWidget):
         self._apply_dark_style()
 
     def _load_settings(self):
-        if not self.settings_path.exists():
-            return
-        try:
-            payload = json.loads(self.settings_path.read_text(encoding="utf-8"))
-        except Exception:
+        ensure_mysql_ready()
+        payload = load_system_settings() or {}
+        if not payload:
             return
         self.ui.txt_store_name.setText(payload.get("store_name", self.ui.txt_store_name.text()))
         self.ui.txt_store_address.setText(payload.get("store_address", self.ui.txt_store_address.text()))
@@ -104,8 +100,10 @@ class SettingsWidget(QWidget):
             "qr_payload": self.ui.txt_qr_payload.text().strip(),
             "qr_image_path": self.ui.txt_qr_image_path.text().strip(),
         }
-        self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-        self.settings_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        vat_raw = str(payload.get("default_vat", "10")).replace("%", "").strip() or "10"
+        payload["default_vat"] = float(vat_raw)
+        ensure_mysql_ready()
+        upsert_system_settings(payload)
         QMessageBox.information(self, "Cài đặt hệ thống", "Đã lưu thông tin thanh toán và cài đặt.")
 
     def _apply_dark_style(self):

@@ -1,8 +1,4 @@
-import json
-from pathlib import Path
-
-
-RBAC_PATH = Path("data/rbac_permissions.json")
+from database.connection import ensure_mysql_ready, execute, fetch_all
 
 
 DEFAULT_SECTION_PERMISSIONS = {
@@ -86,26 +82,36 @@ def _default_payload():
 
 
 def load_permissions():
-    if not RBAC_PATH.exists():
-        return _default_payload()
-    try:
-        raw = json.loads(RBAC_PATH.read_text(encoding="utf-8"))
-        payload = _default_payload()
-        if isinstance(raw, dict):
-            if isinstance(raw.get("sections"), dict):
-                payload["sections"].update(raw["sections"])
-            if isinstance(raw.get("actions"), dict):
-                payload["actions"].update(raw["actions"])
-        return payload
-    except Exception:
-        return _default_payload()
+    ensure_mysql_ready()
+    payload = _default_payload()
+    rows = fetch_all(
+        "SELECT role_name, section_key, can_access FROM rbac_section_permissions ORDER BY id ASC"
+    )
+    if rows:
+        merged = {}
+        for row in rows:
+            role = row.get("role_name")
+            key = row.get("section_key")
+            if not role or not key:
+                continue
+            merged.setdefault(role, {})
+            merged[role][key] = bool(row.get("can_access"))
+        payload["sections"].update(merged)
+    return payload
 
 
 def save_section_permissions(section_permissions):
-    payload = load_permissions()
-    payload["sections"] = section_permissions
-    RBAC_PATH.parent.mkdir(parents=True, exist_ok=True)
-    RBAC_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    ensure_mysql_ready()
+    execute("DELETE FROM rbac_section_permissions")
+    for role_name, section_map in (section_permissions or {}).items():
+        for section_key, can_access in (section_map or {}).items():
+            execute(
+                """
+                INSERT INTO rbac_section_permissions(role_name, section_key, can_access)
+                VALUES (%s, %s, %s)
+                """,
+                (role_name, section_key, 1 if bool(can_access) else 0),
+            )
 
 
 def allowed_sections_for_role(role):

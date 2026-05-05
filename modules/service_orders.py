@@ -1,9 +1,6 @@
-import json
 from datetime import datetime
-from pathlib import Path
 
-
-DATA_PATH = Path("data/service_orders.json")
+from database.connection import ensure_mysql_ready, execute, fetch_all, fetch_one
 
 ALLOWED_TRANSITIONS = {
     "NEW_WEB": {"CHECKED_IN", "CANCELLED"},
@@ -20,29 +17,77 @@ ALLOWED_TRANSITIONS = {
 }
 
 
-def _default_payload():
-    return {"orders": []}
-
-
-def load_orders():
-    if not DATA_PATH.exists():
-        return _default_payload()
-    try:
-        raw = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-        if isinstance(raw, dict) and isinstance(raw.get("orders"), list):
-            return raw
-    except Exception:
-        pass
-    return _default_payload()
-
-
-def save_orders(payload):
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DATA_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
 def list_orders():
-    return list(load_orders().get("orders", []))
+    ensure_mysql_ready()
+    rows = fetch_all(
+        """
+        SELECT
+            o.order_no, o.created_at, o.status, o.customer_name, o.customer_phone, o.plate,
+            o.source, o.assigned_to, o.invoice_no
+        FROM service_orders o
+        ORDER BY o.id DESC
+        """
+    )
+    result = []
+    for row in rows:
+        order_id = row.get("order_no", "")
+        service_rows = fetch_all(
+            "SELECT service_name FROM service_order_services WHERE order_no=%s ORDER BY id ASC",
+            (order_id,),
+        )
+        material_rows = fetch_all(
+            """
+            SELECT item_name, qty, requested_at, exported, exported_at
+            FROM service_order_material_requests
+            WHERE order_no=%s
+            ORDER BY id ASC
+            """,
+            (order_id,),
+        )
+        history_rows = fetch_all(
+            """
+            SELECT at_time, from_status, to_status, actor, note_text
+            FROM service_order_history
+            WHERE order_no=%s
+            ORDER BY id ASC
+            """,
+            (order_id,),
+        )
+        result.append(
+            {
+                "order_id": order_id,
+                "created_at": row["created_at"].strftime("%d/%m/%Y %H:%M") if row.get("created_at") else "",
+                "status": row.get("status", ""),
+                "customer_name": row.get("customer_name", ""),
+                "customer_phone": row.get("customer_phone", ""),
+                "plate": row.get("plate", ""),
+                "services": [x.get("service_name", "") for x in service_rows],
+                "source": row.get("source", "desk"),
+                "assigned_to": row.get("assigned_to", ""),
+                "material_requests": [
+                    {
+                        "item_name": x.get("item_name", ""),
+                        "qty": int(x.get("qty") or 1),
+                        "requested_at": x["requested_at"].strftime("%d/%m/%Y %H:%M:%S") if x.get("requested_at") else "",
+                        "exported": bool(x.get("exported")),
+                        "exported_at": x["exported_at"].strftime("%d/%m/%Y %H:%M:%S") if x.get("exported_at") else "",
+                    }
+                    for x in material_rows
+                ],
+                "invoice_no": row.get("invoice_no", ""),
+                "history": [
+                    {
+                        "at": x["at_time"].strftime("%d/%m/%Y %H:%M:%S") if x.get("at_time") else "",
+                        "from": x.get("from_status", ""),
+                        "to": x.get("to_status", ""),
+                        "by": x.get("actor", "system"),
+                        "note": x.get("note_text", ""),
+                    }
+                    for x in history_rows
+                ],
+            }
+        )
+    return result
 
 
 def get_order(order_id):
@@ -58,38 +103,50 @@ def _next_order_id():
 
 
 def append_order_history(order, from_status, to_status, actor, note=""):
-    order.setdefault("history", [])
-    order["history"].append(
-        {
-            "at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-            "from": from_status,
-            "to": to_status,
-            "by": actor or "system",
-            "note": note or "",
-        }
+    ensure_mysql_ready()
+    order_id = (order or {}).get("order_id", "")
+    if not order_id:
+        return
+    execute(
+        """
+        INSERT INTO service_order_history(order_no, at_time, from_status, to_status, actor, note_text)
+        VALUES (%s, NOW(), %s, %s, %s, %s)
+        """,
+        (order_id, from_status, to_status, actor or "system", note or ""),
     )
 
 
 def create_order(data):
-    payload = load_orders()
-    order = {
-        "order_id": data.get("order_id") or _next_order_id(),
-        "created_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "status": data.get("status", "CHECKED_IN"),
-        "customer_name": data.get("customer_name", "Khách lẻ"),
-        "customer_phone": data.get("customer_phone", ""),
-        "plate": data.get("plate", ""),
-        "services": data.get("services", []),
-        "source": data.get("source", "desk"),
-        "assigned_to": data.get("assigned_to", ""),
-        "material_requests": data.get("material_requests", []),
-        "invoice_no": data.get("invoice_no", ""),
-        "history": [],
-    }
-    append_order_history(order, "-", order["status"], data.get("actor", "system"), "Tạo lệnh dịch vụ")
-    payload["orders"].append(order)
-    save_orders(payload)
-    return order
+    ensure_mysql_ready()
+    order_id = data.get("order_id") or _next_order_id()
+    created_at = datetime.now()
+    execute(
+        """
+        INSERT INTO service_orders(
+            order_no, created_at, status, customer_name, customer_phone, plate,
+            source, assigned_to, invoice_no
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            order_id,
+            created_at,
+            data.get("status", "CHECKED_IN"),
+            data.get("customer_name", "Khách lẻ"),
+            data.get("customer_phone", ""),
+            data.get("plate", ""),
+            data.get("source", "desk"),
+            data.get("assigned_to", ""),
+            data.get("invoice_no", ""),
+        ),
+    )
+    for service_name in data.get("services", []) or []:
+        if str(service_name or "").strip():
+            execute(
+                "INSERT INTO service_order_services(order_no, service_name, qty, unit_price) VALUES (%s, %s, 1, 0)",
+                (order_id, str(service_name)),
+            )
+    append_order_history(order={"order_id": order_id}, from_status="-", to_status=data.get("status", "CHECKED_IN"), actor=data.get("actor", "system"), note="Tạo lệnh dịch vụ")
+    return get_order(order_id)
 
 
 def create_order_from_web_booking(booking, actor="system"):
@@ -108,68 +165,75 @@ def create_order_from_web_booking(booking, actor="system"):
 
 
 def transition_order_status(order_id, to_status, actor="system", note=""):
-    payload = load_orders()
-    for order in payload.get("orders", []):
-        if order.get("order_id") != order_id:
-            continue
-        from_status = order.get("status", "")
-        allowed = ALLOWED_TRANSITIONS.get(from_status, set())
-        if to_status not in allowed:
-            raise ValueError(f"Không thể chuyển từ {from_status} sang {to_status}")
-        order["status"] = to_status
-        append_order_history(order, from_status, to_status, actor, note)
-        save_orders(payload)
-        return order
-    raise ValueError("Không tìm thấy lệnh dịch vụ")
+    ensure_mysql_ready()
+    row = fetch_one("SELECT status FROM service_orders WHERE order_no=%s", (order_id,))
+    if not row:
+        raise ValueError("Không tìm thấy lệnh dịch vụ")
+    from_status = row.get("status", "")
+    allowed = ALLOWED_TRANSITIONS.get(from_status, set())
+    if to_status not in allowed:
+        raise ValueError(f"Không thể chuyển từ {from_status} sang {to_status}")
+    execute("UPDATE service_orders SET status=%s WHERE order_no=%s", (to_status, order_id))
+    append_order_history({"order_id": order_id}, from_status, to_status, actor, note)
+    return get_order(order_id)
 
 
 def add_material_request(order_id, item_name, qty, actor="system"):
-    payload = load_orders()
-    for order in payload.get("orders", []):
-        if order.get("order_id") != order_id:
-            continue
-        req = {
-            "item_name": str(item_name or "").strip() or "Vật tư chung",
-            "qty": max(1, int(qty or 1)),
-            "requested_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-            "exported": False,
-            "exported_at": "",
-        }
-        order.setdefault("material_requests", []).append(req)
-        append_order_history(order, order.get("status", ""), order.get("status", ""), actor, f"Yêu cầu vật tư: {req['item_name']} x{req['qty']}")
-        save_orders(payload)
-        return req
-    raise ValueError("Không tìm thấy lệnh dịch vụ")
+    ensure_mysql_ready()
+    exists = fetch_one("SELECT order_no, status FROM service_orders WHERE order_no=%s", (order_id,))
+    if not exists:
+        raise ValueError("Không tìm thấy lệnh dịch vụ")
+    req_item = str(item_name or "").strip() or "Vật tư chung"
+    req_qty = max(1, int(qty or 1))
+    execute(
+        """
+        INSERT INTO service_order_material_requests(order_no, item_name, qty, requested_at, exported, exported_at)
+        VALUES (%s, %s, %s, NOW(), 0, NULL)
+        """,
+        (order_id, req_item, req_qty),
+    )
+    append_order_history({"order_id": order_id}, exists.get("status", ""), exists.get("status", ""), actor, f"Yêu cầu vật tư: {req_item} x{req_qty}")
+    return {
+        "item_name": req_item,
+        "qty": req_qty,
+        "requested_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "exported": False,
+        "exported_at": "",
+    }
 
 
 def mark_materials_exported(order_id, actor="system"):
-    payload = load_orders()
-    for order in payload.get("orders", []):
-        if order.get("order_id") != order_id:
-            continue
-        changed = False
-        for req in order.setdefault("material_requests", []):
-            if not req.get("exported"):
-                req["exported"] = True
-                req["exported_at"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                changed = True
-        if changed:
-            append_order_history(order, order.get("status", ""), order.get("status", ""), actor, "Đã xác nhận xuất kho vật tư")
-            save_orders(payload)
-        return changed
-    raise ValueError("Không tìm thấy lệnh dịch vụ")
+    ensure_mysql_ready()
+    exists = fetch_one("SELECT status FROM service_orders WHERE order_no=%s", (order_id,))
+    if not exists:
+        raise ValueError("Không tìm thấy lệnh dịch vụ")
+    before = fetch_one(
+        "SELECT COUNT(*) AS c FROM service_order_material_requests WHERE order_no=%s AND exported=0",
+        (order_id,),
+    )
+    execute(
+        """
+        UPDATE service_order_material_requests
+        SET exported=1, exported_at=NOW()
+        WHERE order_no=%s AND exported=0
+        """,
+        (order_id,),
+    )
+    changed = int((before or {}).get("c", 0)) > 0
+    if changed:
+        append_order_history({"order_id": order_id}, exists.get("status", ""), exists.get("status", ""), actor, "Đã xác nhận xuất kho vật tư")
+    return changed
 
 
 def attach_invoice_to_order(order_id, invoice_no, actor="system"):
-    payload = load_orders()
-    for order in payload.get("orders", []):
-        if order.get("order_id") != order_id:
-            continue
-        order["invoice_no"] = str(invoice_no or "").strip()
-        append_order_history(order, order.get("status", ""), order.get("status", ""), actor, f"Gắn hóa đơn {order['invoice_no']}")
-        save_orders(payload)
-        return order
-    raise ValueError("Không tìm thấy lệnh dịch vụ")
+    ensure_mysql_ready()
+    exists = fetch_one("SELECT status FROM service_orders WHERE order_no=%s", (order_id,))
+    if not exists:
+        raise ValueError("Không tìm thấy lệnh dịch vụ")
+    invoice_no = str(invoice_no or "").strip()
+    execute("UPDATE service_orders SET invoice_no=%s WHERE order_no=%s", (invoice_no, order_id))
+    append_order_history({"order_id": order_id}, exists.get("status", ""), exists.get("status", ""), actor, f"Gắn hóa đơn {invoice_no}")
+    return get_order(order_id)
 
 
 def find_latest_order_by_phone(phone, statuses=None):

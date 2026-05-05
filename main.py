@@ -13,6 +13,11 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QPixmap, QIcon, QPainter, QPen, QColor, QPainterPath
 from modules.audit_log import append_audit_log
+from database.connection import (
+    ensure_mysql_ready,
+    health_check as db_health_check,
+)
+from database.models import load_users
 
 try:
     from modules.qlkhachhang import CustomerManagerWidget
@@ -899,7 +904,27 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    auth_user = show_login_dialog()
+    ok, msg = db_health_check()
+    if not ok:
+        QMessageBox.critical(
+            None,
+            "Lỗi kết nối cơ sở dữ liệu",
+            "Không thể kết nối MySQL.\n\n"
+            f"Chi tiết: {msg}\n\n"
+            "Vui lòng kiểm tra file .env (DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS) "
+            "và trạng thái MySQL service rồi mở lại chương trình.",
+        )
+        return
+    try:
+        auth_user = show_login_dialog()
+    except Exception as exc:
+        QMessageBox.critical(
+            None,
+            "Lỗi khởi động đăng nhập",
+            "Không thể tải dữ liệu tài khoản từ MySQL.\n\n"
+            f"Chi tiết: {exc}",
+        )
+        return
     if auth_user is None:
         return
     window = MainWindow(auth_user=auth_user)
@@ -908,19 +933,14 @@ def main():
 
 
 def _load_auth_accounts():
-    cfg_path = PROJECT_ROOT / "data" / "auth_accounts.json"
-    if cfg_path.exists():
-        try:
-            payload = json.loads(cfg_path.read_text(encoding="utf-8"))
-            if isinstance(payload, list):
-                return payload
-        except Exception:
-            pass
-    return [
-        {"username": "admin", "password": "123456", "role": "Quản lý"},
-        {"username": "letan", "password": "123456", "role": "Lễ tân"},
-        {"username": "admin1", "password": "123456", "role": "Quản lý"},
-    ]
+    ensure_mysql_ready()
+    users = load_users()
+    if not users:
+        raise RuntimeError(
+            "Không có tài khoản đăng nhập trong bảng users. "
+            "Hãy import database/mysql_schema_seed.sql hoặc tạo user trong MySQL."
+        )
+    return users
 
 
 def show_login_dialog():
