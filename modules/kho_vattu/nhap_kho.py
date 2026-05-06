@@ -1,11 +1,17 @@
-from modules.kho_vattu.data_store import ton_kho, nhap_kho_log
+from database.models import get_product_by_id, update_product_stock, insert_inventory_transaction
+
 
 class NhapKho:
 
-    def nhap(self, vat_tu_id, so_luong):
-        ton_kho[vat_tu_id] = ton_kho.get(vat_tu_id, 0) + so_luong
+    def nhap(self, product_id, so_luong, reason='Nhập kho', reference_no=''):
+        try:
+            product = get_product_by_id(product_id)
+            if not product:
+                raise ValueError("Product not found")
 
-        nhap_kho_log.append({
-            "vat_tu_id": vat_tu_id,
-            "so_luong": so_luong
-        })
+            new_stock = product["current_stock"] + so_luong
+            update_product_stock(product_id, new_stock)
+            insert_inventory_transaction(product_id, 'IN', so_luong, reason, reference_no)
+        except Exception as e:
+            print(f"Error importing stock: {e}")
+            raise

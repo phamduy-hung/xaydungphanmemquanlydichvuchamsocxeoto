@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from database.connection import ensure_mysql_ready, execute, fetch_all, fetch_one
+from database.models import get_product_by_code, update_product_stock, insert_inventory_transaction
 
 FINAL_STATUSES = {"paid", "cancelled", "refunded"}
 
@@ -100,6 +101,18 @@ def append_invoice(invoice):
                 line_total,
             ),
         )
+
+        # Reduce inventory for products
+        item_type = str(item.get("type", item.get("item_type", "service")))
+        if item_type == "product":
+            item_name = str(item.get("name", item.get("item_name", "")))
+            # Assume item_name is product_code for now
+            product = get_product_by_code(item_name)
+            if product and product["current_stock"] >= qty:
+                new_stock = product["current_stock"] - qty
+                update_product_stock(product["id"], new_stock)
+                insert_inventory_transaction(product["id"], 'OUT', qty, 'Bán hàng', invoice_no)
+                print(f"Reduced stock for {item_name}: {product['current_stock']} -> {new_stock}")  # Debug
     return
 
 

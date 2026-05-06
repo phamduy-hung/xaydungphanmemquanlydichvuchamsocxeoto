@@ -1,18 +1,30 @@
-from modules.kho_vattu.data_store import ton_kho, vattu_list
+from database.models import load_products, get_low_stock_products
+
 
 class TonKho:
 
     def xem_ton(self):
-        result = []
-        for vt in vattu_list:
-            so_luong = ton_kho.get(vt["id"], 0)
-            result.append((vt["ten"], so_luong))
-        return result
+        try:
+            products = load_products()
+            if not products:
+                return []
+            result = []
+            for p in products:
+                result.append((p["name"], p["current_stock"]))
+            return result
+        except Exception as e:
+            print(f"Error getting stock levels: {e}")
+            return []
 
     def canh_bao_ton_thap(self):
-        warning = []
-        for vt in vattu_list:
-            so_luong = ton_kho.get(vt["id"], 0)
-            if so_luong < vt["min"]:
-                warning.append((vt["ten"], so_luong, vt["min"]))
-        return warning
+        try:
+            low_stock = get_low_stock_products()
+            if not low_stock:
+                return []
+            warning = []
+            for p in low_stock:
+                warning.append((p["name"], p["current_stock"], p["min_stock"]))
+            return warning
+        except Exception as e:
+            print(f"Error getting low stock warnings: {e}")
+            return []

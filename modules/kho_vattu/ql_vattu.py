@@ -1,20 +1,91 @@
-from modules.kho_vattu.data_store import vattu_list
+from database.models import (
+    load_products, get_product_by_id, get_product_by_code,
+    insert_product, update_product, delete_product
+)
+
 
 class QuanLyVatTu:
 
     def danh_sach(self):
-        return vattu_list
+        try:
+            products = load_products()
+            if not products:
+                return []
+            # Convert to old format for compatibility
+            return [{
+                "id": p["id"],
+                "ten": p["name"],
+                "loai": p["category"],
+                "don_vi": p["unit"],
+                "gia": float(p["price"]),
+                "min": p["min_stock"]
+            } for p in products]
+        except Exception as e:
+            print(f"Error loading products: {e}")
+            return []
 
     def tim_kiem(self, keyword):
-        return [vt for vt in vattu_list if keyword.lower() in vt["ten"].lower()]
+        try:
+            products = load_products()
+            if not products:
+                return []
+            filtered = [p for p in products if keyword.lower() in p["name"].lower()]
+            return [{
+                "id": p["id"],
+                "ten": p["name"],
+                "loai": p["category"],
+                "don_vi": p["unit"],
+                "gia": float(p["price"]),
+                "min": p["min_stock"]
+            } for p in filtered]
+        except Exception as e:
+            print(f"Error searching products: {e}")
+            return []
 
     def them(self, ten, loai, don_vi, gia, min_ton):
-        new_id = max(v["id"] for v in vattu_list) + 1
-        vattu_list.append({
-            "id": new_id,
-            "ten": ten,
-            "loai": loai,
-            "don_vi": don_vi,
-            "gia": gia,
-            "min": min_ton
-        })
+        try:
+            # Generate product code
+            products = load_products()
+            next_code = f"VT{len(products) + 1:03d}"
+            product_id = insert_product(next_code, ten, loai, don_vi, gia, min_ton)
+            return product_id
+        except Exception as e:
+            print(f"Error adding product: {e}")
+            raise
+
+    def sua(self, product_id, ten, loai, don_vi, gia, min_ton):
+        try:
+            product = get_product_by_id(product_id)
+            if not product:
+                raise ValueError("Product not found")
+            update_product(product_id, product["product_code"], ten, loai, don_vi, gia, min_ton)
+        except Exception as e:
+            print(f"Error updating product: {e}")
+            raise
+
+    def xoa(self, product_id):
+        try:
+            product = get_product_by_id(product_id)
+            if not product:
+                raise ValueError("Product not found")
+            delete_product(product_id)
+        except Exception as e:
+            print(f"Error deleting product: {e}")
+            raise
+
+    def lay_theo_id(self, product_id):
+        try:
+            product = get_product_by_id(product_id)
+            if not product:
+                return None
+            return {
+                "id": product["id"],
+                "ten": product["name"],
+                "loai": product["category"],
+                "don_vi": product["unit"],
+                "gia": float(product["price"]),
+                "min": product["min_stock"]
+            }
+        except Exception as e:
+            print(f"Error getting product by id: {e}")
+            return None

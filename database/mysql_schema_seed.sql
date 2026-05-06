@@ -207,6 +207,33 @@ CREATE TABLE invoice_items (
   FOREIGN KEY (invoice_no) REFERENCES invoices(invoice_no) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE products (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_code VARCHAR(20) NOT NULL UNIQUE,
+  name VARCHAR(120) NOT NULL,
+  category VARCHAR(50) NOT NULL,
+  unit VARCHAR(20) NOT NULL,
+  price DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  min_stock INT NOT NULL DEFAULT 0,
+  current_stock INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE inventory_transactions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_id BIGINT NOT NULL,
+  transaction_type VARCHAR(20) NOT NULL, -- 'IN' or 'OUT'
+  quantity INT NOT NULL,
+  reason VARCHAR(100) DEFAULT '',
+  reference_no VARCHAR(30) DEFAULT '', -- invoice_no or purchase_order
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  INDEX idx_trans_product (product_id),
+  INDEX idx_trans_type (transaction_type),
+  INDEX idx_trans_created (created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE customer_care_vouchers (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   voucher_code VARCHAR(40) NOT NULL UNIQUE,
@@ -332,6 +359,18 @@ INSERT INTO customers (customer_code, full_name, phone, vehicle_plate, points, t
 ('KH003', 'Lê Quốc Khánh', '0938222111', '43A-99999', 780, 'Bạc', 3.00, 8600000.00),
 ('KH004', 'Phạm Anh Thu', '0977666111', '30F-88888', 1650, 'Vàng', 5.00, 19200000.00),
 ('KH005', 'Hoàng Minh Châu', '0913555444', '29A-123456', 50, 'Đồng', 0.00, 980000.00);
+
+INSERT INTO products (product_code, name, category, unit, price, min_stock, current_stock) VALUES
+('VT001', 'Dầu nhớt Castrol GTX 5W-30', 'Dung dịch', 'Lít', 120000.00, 20, 50),
+('VT002', 'Nước rửa kính Meguiar', 'Dung dịch', 'Chai', 50000.00, 10, 5),
+('VT003', 'Lọc gió Toyota Camry', 'Phụ tùng', 'Cái', 150000.00, 5, 2),
+('VT004', 'Dầu phanh DOT 4', 'Dung dịch', 'Lít', 80000.00, 15, 25),
+('VT005', 'Bọt rửa xe cao áp', 'Dung dịch', 'Chai', 30000.00, 20, 30),
+('VT006', 'Vệ sinh nội thất Meguiar', 'Dung dịch', 'Chai', 250000.00, 5, 8),
+('VT007', 'Lốp xe Michelin 205/55R16', 'Phụ tùng', 'Cái', 2500000.00, 2, 4),
+('VT008', 'Ắc quy 12V 60Ah', 'Phụ tùng', 'Cái', 800000.00, 3, 6),
+('VT009', 'Dung dịch làm mát', 'Dung dịch', 'Lít', 60000.00, 10, 12),
+('VT010', 'Chổi lau kính', 'Công cụ', 'Cái', 20000.00, 10, 15);
 
 INSERT INTO web_bookings (booking_code, customer_name, phone, plate, service_name, appointment_date, appointment_time, notes, status, source) VALUES
 ('WB20260505001', 'Nguyễn Văn A', '0901122334', '51A-12345', 'Rửa xe', '2026-05-05', '09:30', 'Khách đến đúng giờ', 'ACCEPTED', 'web'),
