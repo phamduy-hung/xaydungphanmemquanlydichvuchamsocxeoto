@@ -1,4 +1,4 @@
-# Python
+## Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -7,26 +7,33 @@ __pycache__/
 dist/
 build/
 venv/
-.env
 
-# SQLite database (sinh ra khi chạy, không cần commit)
+## Environment files (không commit thông tin nhạy cảm)
+.env
+*.env.local
+
+## SQLite / database files (nếu có)
 server/bookings.db
 *.db
 
-# Node / Frontend
+## Runtime JSON data (đã dùng MySQL thay thế)
+data/*.json
+!data/.gitkeep
+
+## Node / Frontend
 khachhang_web/node_modules/
 khachhang_web/dist/
 khachhang_web/.vite/
 
-# macOS
+## macOS
 .DS_Store
 **/.DS_Store
 
-# Logs
+## Logs
 *.log
 npm-debug.log*
 
-# IDE
+## IDE
 .vscode/
 .idea/
 *.swp
