@@ -725,6 +725,11 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.page_crm)
             if self.crm is None:
                 self._ensure_deferred("crm", self._ensure_crm)
+            else:
+                try:
+                    self.crm.refresh_from_database()
+                except Exception:
+                    pass
         else:
             self.show_placeholder("Không tìm thấy module CRM")
 

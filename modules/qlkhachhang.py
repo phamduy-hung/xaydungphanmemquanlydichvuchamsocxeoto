@@ -19,19 +19,43 @@ from ui.compiled.ui_suathongtinKH import Ui_Dialog as Ui_Dialog_SuaThongTinKH
 from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
+from modules.service_orders import find_latest_order_by_phone
 from database.connection import ensure_mysql_ready, execute, fetch_all
 
 # Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
 CLASS_NEW = "Khách mới"
 CLASS_RETURN = "Khách quay lại"
 CLASS_VIP = "Khách VIP"
-VIP_THRESHOLD = 50_000_000  # Trên 50 triệu → tự xếp VIP
+TIER_DONG = "Đồng"
+TIER_BAC = "Bạc"
+TIER_VANG = "Vàng"
+TIER_VIP = "VIP"
+DISCOUNT_BY_TIER = {TIER_DONG: 1, TIER_BAC: 3, TIER_VANG: 5, TIER_VIP: 8}
 
 
-def _apply_vip_rule(customer):
-    """Tổng chi tiêu > 50 triệu: bắt buộc phân loại VIP."""
-    if int(customer.get("tong_chi_tieu", 0)) > VIP_THRESHOLD:
-        customer["phan_loai"] = CLASS_VIP
+def _tier_from_points(points: int, rules: dict) -> str:
+    p = int(points or 0)
+    if p >= int(rules.get("nguong_vip", 5000)):
+        return TIER_VIP
+    if p >= int(rules.get("nguong_vang", 1500)):
+        return TIER_VANG
+    if p >= int(rules.get("nguong_bac", 500)):
+        return TIER_BAC
+    return TIER_DONG
+
+
+def _crm_class_from_tier(tier: str, points: int) -> str:
+    if str(tier or "").strip() == TIER_VIP:
+        return CLASS_VIP
+    return CLASS_RETURN if int(points or 0) > 0 else CLASS_NEW
+
+
+def _apply_loyalty_rule(customer: dict, rules: dict):
+    points = int(customer.get("diem", 0) or 0)
+    tier = _tier_from_points(points, rules)
+    customer["hang_thanh_vien"] = tier
+    customer["chiet_khau"] = int(DISCOUNT_BY_TIER.get(tier, 1))
+    customer["phan_loai"] = _crm_class_from_tier(tier, points)
 
 
 def _to_mysql_date(value: str):
@@ -94,7 +118,7 @@ class AddCustomerDialog(QDialog):
 
 
 class EditCustomerDialog(QDialog):
-    """Sửa KH: có phân loại; dưới ngưỡng chỉ đổi Khách mới ↔ Khách quay lại; trên ngưỡng khóa VIP."""
+    """Sửa thông tin khách; hạng CRM sẽ tự đồng bộ theo điểm từ CSKH."""
 
     def __init__(self, parent=None, customer_data=None):
         super().__init__(parent)
@@ -117,34 +141,19 @@ class EditCustomerDialog(QDialog):
         """)
 
     def _setup_classification_combo(self):
-        """Đồng bộ nhãn với màn hình chính; ẩn VIP khi chưa đủ ngưỡng (cho phép chỉ 2 lựa chọn)."""
-        spending = int(self.customer_data.get("tong_chi_tieu", 0))
+        """Phân loại CRM đồng bộ tự động theo điểm -> chỉ hiển thị để tham khảo."""
         cb = self.ui.comboBox
         cb.blockSignals(True)
         cb.clear()
-        if spending > VIP_THRESHOLD:
-            cb.addItem(CLASS_VIP)
-            cb.setCurrentIndex(0)
-            cb.setEnabled(False)
-        else:
-            cb.addItem(CLASS_NEW)
-            cb.addItem(CLASS_RETURN)
-            cb.setEnabled(True)
+        cb.addItem(CLASS_NEW)
+        cb.addItem(CLASS_RETURN)
+        cb.addItem(CLASS_VIP)
+        cb.setEnabled(False)
         cb.blockSignals(False)
 
     def _set_combo_from_phan_loai(self):
-        spending = int(self.customer_data.get("tong_chi_tieu", 0))
         raw = self.customer_data.get("phan_loai", CLASS_NEW)
         cb = self.ui.comboBox
-
-        if spending > VIP_THRESHOLD:
-            return
-
-        if raw == CLASS_VIP:
-            idx = cb.findText(CLASS_RETURN, Qt.MatchFixedString)
-            cb.setCurrentIndex(idx if idx >= 0 else 0)
-            return
-
         idx = cb.findText(raw, Qt.MatchFixedString)
         if idx >= 0:
             cb.setCurrentIndex(idx)
@@ -176,18 +185,16 @@ class EditCustomerDialog(QDialog):
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Tên khách hàng và Số điện thoại.")
             return
 
-        if spending > VIP_THRESHOLD:
-            phan_loai = CLASS_VIP
-        else:
-            phan_loai = self.ui.comboBox.currentText()
-
         self.saved_customer_data = {
             "id": self.customer_data.get("id"),
             "ten": ten,
             "sdt": sdt,
             "hang_xe": hang_xe,
             "bien_so": bien_so,
-            "phan_loai": phan_loai,
+            "phan_loai": self.customer_data.get("phan_loai", CLASS_NEW),
+            "diem": int(self.customer_data.get("diem", 0)),
+            "hang_thanh_vien": self.customer_data.get("hang_thanh_vien", TIER_DONG),
+            "chiet_khau": int(self.customer_data.get("chiet_khau", 1)),
             "tong_chi_tieu": spending,
             "ghi_chu": ghi_chu,
         }
@@ -206,6 +213,7 @@ class CustomerManagerWidget(QWidget):
         self.service_history_map = {}
         self.next_customer_id = 1
         self.search_keyword = ""
+        self.loyalty_rules = self._load_loyalty_rules()
 
         self._setup_tables()
         self._apply_dark_style()
@@ -215,10 +223,57 @@ class CustomerManagerWidget(QWidget):
 
     def _load_or_seed_data(self):
         ensure_mysql_ready()
+        self._ensure_vehicle_table()
+        self.loyalty_rules = self._load_loyalty_rules()
         if self._load_from_mysql():
             return
         self._seed_demo_data()
         self._save_all_to_mysql()
+
+    def _ensure_vehicle_table(self):
+        execute(
+            """
+            CREATE TABLE IF NOT EXISTS crm_customer_vehicles (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                customer_id BIGINT NOT NULL,
+                car_model VARCHAR(100) NOT NULL DEFAULT '',
+                plate_no VARCHAR(20) NOT NULL DEFAULT '',
+                UNIQUE KEY uk_customer_vehicle (customer_id, car_model, plate_no),
+                INDEX idx_customer_vehicles (customer_id),
+                FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB
+            """
+        )
+
+    def refresh_from_database(self):
+        selected_id = self._get_selected_customer_id()
+        self.loyalty_rules = self._load_loyalty_rules()
+        self._load_from_mysql()
+        self.refresh_customer_table()
+        if selected_id is not None:
+            self._select_customer_by_id(selected_id)
+
+    def _load_loyalty_rules(self):
+        try:
+            rows = fetch_all(
+                """
+                SELECT diem_moi_1trieu, nguong_bac, nguong_vang, nguong_vip
+                FROM cskh_settings
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+            if rows:
+                r = rows[0]
+                return {
+                    "diem_moi_1trieu": int(r.get("diem_moi_1trieu") or 10),
+                    "nguong_bac": int(r.get("nguong_bac") or 500),
+                    "nguong_vang": int(r.get("nguong_vang") or 1500),
+                    "nguong_vip": int(r.get("nguong_vip") or 5000),
+                }
+        except Exception:
+            pass
+        return {"diem_moi_1trieu": 10, "nguong_bac": 500, "nguong_vang": 1500, "nguong_vip": 5000}
 
     def _setup_tables(self):
         # Clear legacy styling
@@ -394,19 +449,42 @@ class CustomerManagerWidget(QWidget):
             "hang_xe": data.get("hang_xe", ""),
             "bien_so": data.get("bien_so", ""),
             "phan_loai": data.get("phan_loai", CLASS_NEW),
+            "diem": int(data.get("diem", 0)),
+            "hang_thanh_vien": data.get("hang_thanh_vien", TIER_DONG),
+            "chiet_khau": int(data.get("chiet_khau", 1)),
             "tong_chi_tieu": int(data.get("tong_chi_tieu", 0)),
             "ghi_chu": data.get("ghi_chu", ""),
         }
-        _apply_vip_rule(customer)
+        _apply_loyalty_rule(customer, self.loyalty_rules)
         self.customers.append(customer)
         self.next_customer_id += 1
         return customer
 
+    @staticmethod
+    def _split_multi_values(text: str):
+        raw = str(text or "").strip()
+        if not raw:
+            return []
+        parts = []
+        for chunk in raw.replace(";", ",").split(","):
+            val = chunk.strip()
+            if val and val not in parts:
+                parts.append(val)
+        return parts
+
+    @staticmethod
+    def _first_plate_for_customers_table(raw_plate: str):
+        plates = CustomerManagerWidget._split_multi_values(raw_plate)
+        if plates:
+            return plates[0][:20]
+        return str(raw_plate or "").strip()[:20]
+
     def _load_from_mysql(self):
         try:
+            self._ensure_vehicle_table()
             rows = fetch_all(
                 """
-                SELECT id, full_name, phone, vehicle_plate, tier, total_spent
+                SELECT id, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent
                 FROM customers
                 ORDER BY id ASC
                 """
@@ -423,14 +501,46 @@ class CustomerManagerWidget(QWidget):
                     "sdt": r.get("phone", ""),
                     "hang_xe": "",
                     "bien_so": r.get("vehicle_plate", ""),
-                    "phan_loai": r.get("tier", CLASS_NEW),
+                    "diem": int(r.get("points") or 0),
+                    "hang_thanh_vien": r.get("tier", TIER_DONG),
+                    "chiet_khau": int(float(r.get("discount_percent") or 1)),
+                    "phan_loai": CLASS_NEW,
                     "tong_chi_tieu": int(float(r.get("total_spent") or 0)),
                     "ghi_chu": "",
                 }
-                if customer["phan_loai"] not in (CLASS_NEW, CLASS_RETURN, CLASS_VIP):
-                    customer["phan_loai"] = CLASS_VIP if customer["tong_chi_tieu"] > VIP_THRESHOLD else CLASS_RETURN
+                _apply_loyalty_rule(customer, self.loyalty_rules)
                 self.customers.append(customer)
             self.next_customer_id = max_id + 1 if max_id else 1
+
+            vehicle_rows = fetch_all(
+                """
+                SELECT customer_id, car_model, plate_no
+                FROM crm_customer_vehicles
+                ORDER BY id ASC
+                """
+            )
+            vehicle_map = {}
+            plate_map = {}
+            for v in vehicle_rows:
+                cid = int(v.get("customer_id") or 0)
+                if cid <= 0:
+                    continue
+                cm = str(v.get("car_model", "")).strip()
+                pn = str(v.get("plate_no", "")).strip()
+                if cm:
+                    vehicle_map.setdefault(cid, [])
+                    if cm not in vehicle_map[cid]:
+                        vehicle_map[cid].append(cm)
+                if pn:
+                    plate_map.setdefault(cid, [])
+                    if pn not in plate_map[cid]:
+                        plate_map[cid].append(pn)
+            for customer in self.customers:
+                cid = int(customer["id"])
+                if vehicle_map.get(cid):
+                    customer["hang_xe"] = ", ".join(vehicle_map[cid])
+                if plate_map.get(cid):
+                    customer["bien_so"] = ", ".join(plate_map[cid])
 
             history_rows = fetch_all(
                 """
@@ -459,24 +569,49 @@ class CustomerManagerWidget(QWidget):
 
     def _save_all_to_mysql(self):
         ensure_mysql_ready()
+        self._ensure_vehicle_table()
         execute("DELETE FROM crm_service_history")
+        execute("DELETE FROM crm_customer_vehicles")
         execute("DELETE FROM customers")
         for c in self.customers:
             execute(
                 """
                 INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
-                VALUES (%s, %s, %s, %s, %s, 0, %s, 0, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     int(c["id"]),
                     f"KH{int(c['id']):03d}",
                     c.get("ten", ""),
                     c.get("sdt", ""),
-                    c.get("bien_so", ""),
-                    c.get("phan_loai", CLASS_NEW),
+                    self._first_plate_for_customers_table(c.get("bien_so", "")),
+                    int(c.get("diem", 0)),
+                    c.get("hang_thanh_vien", TIER_DONG),
+                    float(c.get("chiet_khau", 1)),
                     float(c.get("tong_chi_tieu", 0)),
                 ),
             )
+            brands = self._split_multi_values(c.get("hang_xe", ""))
+            plates = self._split_multi_values(c.get("bien_so", ""))
+            if not brands and c.get("hang_xe", "").strip():
+                brands = [c.get("hang_xe", "").strip()]
+            if not plates and c.get("bien_so", "").strip():
+                plates = [c.get("bien_so", "").strip()]
+            if not brands and not plates:
+                continue
+            max_len = max(len(brands), len(plates), 1)
+            for idx in range(max_len):
+                execute(
+                    """
+                    INSERT INTO crm_customer_vehicles(customer_id, car_model, plate_no)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (
+                        int(c["id"]),
+                        brands[idx] if idx < len(brands) else "",
+                        plates[idx] if idx < len(plates) else "",
+                    ),
+                )
         for cid, rows in self.service_history_map.items():
             for h in rows:
                 execute(
@@ -596,7 +731,7 @@ class CustomerManagerWidget(QWidget):
             dialog.saved_customer_data["id"] = customer_id
             dialog.saved_customer_data["tong_chi_tieu"] = self.customers[customer_index]["tong_chi_tieu"]
             updated = dialog.saved_customer_data
-            _apply_vip_rule(updated)
+            _apply_loyalty_rule(updated, self.loyalty_rules)
             self.customers[customer_index] = updated
             self._save_all_to_mysql()
             self.refresh_customer_table()
@@ -672,6 +807,7 @@ class CustomerManagerWidget(QWidget):
             table.setItem(row, 5, QTableWidgetItem(history["ktv"]))
 
     def record_pos_invoice(self, customer_name, customer_phone, total_amount, line_items, created_at):
+        self.loyalty_rules = self._load_loyalty_rules()
         customer_phone = (customer_phone or "").strip()
         customer_name = (customer_name or "").strip() or "Khách lẻ"
         total_amount = int(total_amount or 0)
@@ -693,6 +829,9 @@ class CustomerManagerWidget(QWidget):
                     "hang_xe": "",
                     "bien_so": "",
                     "phan_loai": CLASS_NEW,
+                    "diem": 0,
+                    "hang_thanh_vien": TIER_DONG,
+                    "chiet_khau": 1,
                     "tong_chi_tieu": 0,
                     "ghi_chu": "Tự động tạo từ hóa đơn POS.",
                 }
@@ -700,7 +839,26 @@ class CustomerManagerWidget(QWidget):
             self.service_history_map.setdefault(customer["id"], [])
 
         customer["tong_chi_tieu"] = int(customer.get("tong_chi_tieu", 0)) + total_amount
-        _apply_vip_rule(customer)
+        customer["diem"] = int(customer.get("diem", 0)) + (
+            (total_amount // 1_000_000) * int(self.loyalty_rules.get("diem_moi_1trieu", 10))
+        )
+        _apply_loyalty_rule(customer, self.loyalty_rules)
+
+        technician_name = "POS"
+        try:
+            if customer_phone and customer_phone != "-":
+                latest_order = find_latest_order_by_phone(
+                    customer_phone,
+                    statuses={"DONE", "INVOICED", "PAID", "AFTERCARE"},
+                )
+                if not latest_order:
+                    # Nếu chưa chuyển trạng thái hoàn tất, vẫn lấy KTV từ lệnh gần nhất theo SĐT.
+                    latest_order = find_latest_order_by_phone(customer_phone)
+                assigned_to = str((latest_order or {}).get("assigned_to", "")).strip()
+                if assigned_to:
+                    technician_name = assigned_to
+        except Exception:
+            technician_name = "POS"
 
         service_text = ", ".join(str(it.get("name", "")) for it in (line_items or []) if it.get("name"))
         self.service_history_map.setdefault(customer["id"], []).append(
@@ -710,7 +868,7 @@ class CustomerManagerWidget(QWidget):
                 "bien_so": customer.get("bien_so", ""),
                 "dich_vu": service_text or "Hóa đơn POS",
                 "tong_tien": total_amount,
-                "ktv": "POS",
+                "ktv": technician_name,
             }
         )
         self._save_all_to_mysql()

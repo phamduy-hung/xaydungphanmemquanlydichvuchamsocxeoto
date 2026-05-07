@@ -507,11 +507,62 @@ def ghi_nhan_thanh_toan_tich_hop(ma_khach_hang: str, so_tien_vnd: int, ten_khach
         }
         loy["khach"].append(kh)
     kh["diem"] = int(kh["diem"]) + diem_cong
+    kh["tong_chi_tieu"] = int(kh.get("tong_chi_tieu", 0)) + int(so_tien_vnd or 0)
     if ten_khach_hang:
         kh["ten"] = ten_khach_hang
     if sdt:
         kh["sdt"] = sdt
     store.cap_nhat_khach_sau_diem(kh, loy)
+
+    # Đồng bộ ngay tổng chi tiêu + điểm/hạng sang CRM MySQL để CRM hiển thị đúng sau khi refresh.
+    try:
+        cid = int(str(ma_khach_hang).strip())
+    except Exception:
+        cid = 0
+    try:
+        if cid > 0:
+            row = fetch_one("SELECT id, total_spent FROM customers WHERE id=%s", (cid,))
+            if row:
+                execute(
+                    """
+                    UPDATE customers
+                    SET full_name=%s,
+                        phone=%s,
+                        points=%s,
+                        tier=%s,
+                        discount_percent=%s,
+                        total_spent=%s
+                    WHERE id=%s
+                    """,
+                    (
+                        kh.get("ten", f"Khách #{cid}"),
+                        kh.get("sdt", ""),
+                        int(kh.get("diem", 0)),
+                        kh.get("hang", TIER_DONG),
+                        float(kh.get("chiet_khau", 1)),
+                        float(kh.get("tong_chi_tieu", 0)),
+                        cid,
+                    ),
+                )
+            else:
+                execute(
+                    """
+                    INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
+                    VALUES (%s, %s, %s, %s, '', %s, %s, %s, %s)
+                    """,
+                    (
+                        cid,
+                        f"KH{cid:03d}",
+                        kh.get("ten", f"Khách #{cid}"),
+                        kh.get("sdt", ""),
+                        int(kh.get("diem", 0)),
+                        kh.get("hang", TIER_DONG),
+                        float(kh.get("chiet_khau", 1)),
+                        float(kh.get("tong_chi_tieu", 0)),
+                    ),
+                )
+    except Exception:
+        pass
 
     tb = store.data["thong_bao"]
     noi_dung = (tb.get("mau_cam_on") or "Cảm ơn {ten}! Hóa đơn: {link_hd}").replace("{ten}", kh["ten"]).replace(
