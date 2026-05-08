@@ -14,7 +14,11 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPdfWriter
 
-from modules.kho_vattu.data_store import nhap_kho_log, xuat_kho_log
+try:
+    from modules.kho_vattu.data_store import nhap_kho_log, xuat_kho_log
+except Exception:
+    # kho_vattu/data_store.py may be deprecated in MySQL-only mode.
+    nhap_kho_log, xuat_kho_log = [], []
 from modules.integration_data import get_pos_sales
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
