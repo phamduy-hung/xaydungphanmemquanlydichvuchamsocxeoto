@@ -1,7 +1,9 @@
 import re
+import unicodedata
 from datetime import datetime
+from pathlib import Path
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPainter, QPixmap, QColor, QKeySequence
 from PyQt5.QtWidgets import (
     QAbstractItemView,
@@ -19,9 +21,14 @@ from modules.integration_data import append_pos_sale
 from modules.invoices_store import append_invoice
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
-from modules.service_orders import find_latest_order_by_phone, attach_invoice_to_order, transition_order_status
+from modules.service_orders import (
+    find_latest_order_by_phone,
+    find_latest_billable_order_for_pos,
+    attach_invoice_to_order,
+    transition_order_status,
+)
 from database.connection import ensure_mysql_ready
-from database.models import load_system_settings
+from database.models import load_system_settings, load_unified_catalog_items
 
 
 class InvoiceDialog(QDialog):
@@ -232,20 +239,38 @@ class POSWidget(QWidget):
         self._applied_discount_value = ("none", 0)
         self.crm_widget = None
 
-        self.catalog_items = [
-            {"name": "Rửa xe detailing bọt tuyết", "price": 150000, "type": "Dịch vụ"},
-            {"name": "Phủ Ceramic 9H Pro", "price": 4500000, "type": "Dịch vụ"},
-            {"name": "Vệ sinh dàn lạnh", "price": 300000, "type": "Dịch vụ"},
-            {"name": "Nước hoa xe hơi (Chai)", "price": 650000, "type": "Sản phẩm"},
-            {"name": "Dầu nhớt Castrol 1L", "price": 145000, "type": "Sản phẩm"},
-        ]
+        self.catalog_items = self._load_catalog_items()
         self.cart_items = {}
+        self._catalog_by_name = {}
+        self._last_intake_phone = None
+        self._customer_name_was_entered = False
+        self._prefill_timer = QTimer(self)
+        self._prefill_timer.setSingleShot(True)
+        self._prefill_timer.timeout.connect(self._prefill_cart_from_intake)
         self.vat_percent = self._load_vat_percent()
         self.payment_info = self._load_payment_info()
+        self._rebuild_catalog_index()
 
         self._bind_ui()
         self._apply_dark_style()
         self._render_catalog(self.catalog_items)
+
+    def _load_catalog_items(self):
+        try:
+            ensure_mysql_ready()
+            items = load_unified_catalog_items()
+            if items:
+                return items
+        except Exception:
+            pass
+        # Fallback if DB is unavailable at runtime.
+        return [
+            {"name": "Rửa xe thường", "price": 120000, "type": "Dịch vụ"},
+            {"name": "Rửa xe + hút bụi", "price": 180000, "type": "Dịch vụ"},
+            {"name": "Đánh bóng", "price": 450000, "type": "Dịch vụ"},
+            {"name": "Dầu nhớt Castrol GTX 5W-30", "price": 120000, "type": "Sản phẩm"},
+            {"name": "Nước rửa kính Meguiar", "price": 50000, "type": "Sản phẩm"},
+        ]
 
     def _bind_ui(self):
         self.ui.rootLayout.setStretch(0, 7)
@@ -323,6 +348,98 @@ class POSWidget(QWidget):
         self.btn_pay.clicked.connect(self._show_payment_invoice)
         self.lbl_vat.setText(f"VAT ({self.vat_percent:.1f}%): 0 đ")
 
+        self.txt_customer.textChanged.connect(self._schedule_intake_prefill)
+        self.txt_customer_phone.textChanged.connect(self._schedule_intake_prefill)
+
+    def _rebuild_catalog_index(self):
+        self._catalog_by_name = {it["name"]: it for it in (self.catalog_items or [])}
+
+    def _item_type_for_catalog_name(self, name: str, default="Dịch vụ"):
+        it = self._catalog_by_name.get((name or "").strip())
+        return it["type"] if it else default
+
+    def _reset_invoice_customer_cart(self):
+        """Xóa giỏ và trạng thái nạp từ tiếp nhận khi đổi/xóa khách."""
+        self.cart_items = {}
+        self._last_intake_phone = None
+        self._customer_name_was_entered = False
+        self._render_cart()
+
+    def _schedule_intake_prefill(self):
+        self._prefill_timer.stop()
+        name = (self.txt_customer.text() or "").strip()
+        phone_digits = self._digits_only(self.txt_customer_phone.text())
+
+        if len(phone_digits) == 0:
+            if self.cart_items or self._last_intake_phone is not None:
+                self._reset_invoice_customer_cart()
+            else:
+                self._customer_name_was_entered = False
+            return
+
+        if name:
+            self._customer_name_was_entered = True
+        elif self._customer_name_was_entered:
+            # Đã từng nhập tên rồi xóa hết → xóa giỏ, không tự nạp lại (tránh đầy lại ngay).
+            self._reset_invoice_customer_cart()
+            return
+
+        self._prefill_timer.start(500)
+
+    @staticmethod
+    def _digits_only(s):
+        return re.sub(r"\D", "", str(s or ""))
+
+    def _prefill_cart_from_intake(self):
+        """Nạp hàng từ lệnh Tiếp nhận xe (chưa thanh toán) theo SĐT + tên."""
+        phone_digits = self._digits_only(self.txt_customer_phone.text())
+        name = (self.txt_customer.text() or "").strip()
+        if len(phone_digits) < 8:
+            return
+        if self.cart_items and self._last_intake_phone == phone_digits:
+            return
+        try:
+            order = find_latest_billable_order_for_pos(phone_digits, name)
+        except Exception:
+            return
+        if not order:
+            return
+        new_cart = {}
+        for svc in order.get("service_items") or []:
+            sname = str(svc.get("service_name", "")).strip()
+            if not sname:
+                continue
+            price = int(svc.get("unit_price") or 0)
+            if price <= 0:
+                cat = self._catalog_by_name.get(sname)
+                price = int(cat["price"]) if cat else 0
+            itype = self._item_type_for_catalog_name(sname)
+            if sname in new_cart:
+                new_cart[sname]["qty"] += 1
+            else:
+                new_cart[sname] = {"price": price, "qty": 1, "type": itype}
+        for mat in order.get("material_requests") or []:
+            if not mat.get("exported"):
+                continue
+            mname = str(mat.get("item_name", "")).strip()
+            if not mname:
+                continue
+            qty = max(1, int(mat.get("qty") or 1))
+            cat = self._catalog_by_name.get(mname)
+            price = int(cat["price"]) if cat else 0
+            itype = self._item_type_for_catalog_name(mname, "Sản phẩm")
+            if mname in new_cart:
+                new_cart[mname]["qty"] += qty
+                if price > 0:
+                    new_cart[mname]["price"] = price
+            else:
+                new_cart[mname] = {"price": price, "qty": qty, "type": itype}
+        if not new_cart:
+            return
+        self.cart_items = new_cart
+        self._last_intake_phone = phone_digits
+        self._render_cart()
+
     def _render_catalog(self, items):
         self.tbl_items.setRowCount(len(items))
         for r, item in enumerate(items):
@@ -341,6 +458,17 @@ class POSWidget(QWidget):
             if key in item["name"].lower() or key in item["type"].lower()
         ]
         self._render_catalog(filtered)
+
+    def refresh_catalog_items(self):
+        """Tải lại danh sách dịch vụ/sản phẩm sau khi danh mục thay đổi."""
+        try:
+            ensure_mysql_ready()
+        except Exception:
+            pass
+        self.catalog_items = self._load_catalog_items()
+        self._rebuild_catalog_index()
+        self._render_catalog(self.catalog_items)
+        self._filter_catalog(self.txt_search_item.text() if self.txt_search_item else "")
 
     def _on_item_double_clicked(self, item):
         self._add_item_by_row(item.row())
@@ -387,6 +515,8 @@ class POSWidget(QWidget):
             self.tbl_cart.setItem(r, 2, qty_item)
             self.tbl_cart.setItem(r, 3, total_item)
         self._updating_cart = False
+        if not self.cart_items:
+            self._last_intake_phone = None
         self._recalculate_totals()
 
     def _on_cart_item_changed(self, item):
@@ -492,11 +622,7 @@ class POSWidget(QWidget):
             return ("fixed", int(raw))
         return None
 
-    def _current_totals(self):
-        subtotal = 0
-        for row in self.cart_items.values():
-            subtotal += int(row["price"]) * int(row["qty"])
-
+    def _totals_from_subtotal(self, subtotal: int):
         discount_amount = 0
         discount_type, discount_val = self._applied_discount_value
         if discount_type == "percent":
@@ -508,6 +634,13 @@ class POSWidget(QWidget):
         after_discount = max(0, subtotal - discount_amount)
         vat_amount = int(round(after_discount * (self.vat_percent / 100.0)))
         grand_total = after_discount + vat_amount
+        return discount_amount, vat_amount, grand_total
+
+    def _current_totals(self):
+        subtotal = 0
+        for row in self.cart_items.values():
+            subtotal += int(row["price"]) * int(row["qty"])
+        discount_amount, vat_amount, grand_total = self._totals_from_subtotal(subtotal)
         return subtotal, discount_amount, vat_amount, grand_total
 
     def _recalculate_totals(self):
@@ -636,6 +769,7 @@ class POSWidget(QWidget):
                     int(invoice_data.get("grand_total", 0)),
                     invoice_data.get("lines", []),
                     invoice_data.get("created_at", ""),
+                    related_order_no=related_order_id or None,
                 )
             except Exception:
                 pass
@@ -678,35 +812,55 @@ class POSWidget(QWidget):
             pass
 
     def _sync_inventory_from_invoice(self, lines):
-        try:
-            from modules.kho_vattu.data_store import vattu_list, ton_kho, xuat_kho_log
-        except Exception:
+        ensure_mysql_ready()
+        from database.models import load_products, update_product_stock, insert_inventory_transaction
+
+        def _norm(text: str) -> str:
+            raw = unicodedata.normalize("NFKD", str(text or ""))
+            ascii_text = "".join(ch for ch in raw if not unicodedata.combining(ch))
+            return re.sub(r"\s+", " ", ascii_text).strip().lower()
+
+        products = load_products() or []
+        if not products:
             return
+
+        by_norm_name = {_norm(p.get("name", "")): p for p in products if p.get("name")}
+        by_norm_code = {_norm(p.get("product_code", "")): p for p in products if p.get("product_code")}
+
         for line in lines or []:
             item_type = (line.get("item_type") or "").strip().lower()
             if "sản phẩm" not in item_type and "san pham" not in item_type:
                 continue
-            name = (line.get("name") or "").strip().lower()
+            name = (line.get("name") or "").strip()
             qty = max(1, int(line.get("qty") or 1))
-            matched = None
-            for vt in vattu_list:
-                vt_name = str(vt.get("ten", "")).strip().lower()
-                if vt_name and (vt_name in name or name in vt_name):
-                    matched = vt
-                    break
+            key = _norm(name)
+            matched = by_norm_code.get(key) or by_norm_name.get(key)
+            if not matched and key:
+                for p in products:
+                    pn = _norm(p.get("name", ""))
+                    pc = _norm(p.get("product_code", ""))
+                    if (pn and (pn in key or key in pn)) or (pc and (pc in key or key in pc)):
+                        matched = p
+                        break
             if not matched:
                 continue
-            vt_id = matched.get("id")
-            current = int(ton_kho.get(vt_id, 0))
+            pid = int(matched.get("id") or 0)
+            if pid <= 0:
+                continue
+            current = int(matched.get("current_stock") or 0)
             used = min(current, qty)
-            ton_kho[vt_id] = max(0, current - used)
-            xuat_kho_log.append(
-                {
-                    "vat_tu_id": vt_id,
-                    "so_luong": used,
-                    "ghi_chu": f"Trừ kho từ POS ({line.get('name', '')})",
-                }
+            if used <= 0:
+                continue
+            new_stock = max(0, current - used)
+            update_product_stock(pid, new_stock)
+            insert_inventory_transaction(
+                pid,
+                "OUT",
+                used,
+                reason=f"Bán hàng POS ({line.get('name', '')})",
+                reference_no=str(datetime.now().strftime("POS%Y%m%d%H%M%S")),
             )
+            matched["current_stock"] = new_stock
 
     def _show_notice(self, title: str, message: str, level: str = "info"):
         box = QMessageBox(self)

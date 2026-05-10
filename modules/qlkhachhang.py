@@ -19,7 +19,7 @@ from ui.compiled.ui_suathongtinKH import Ui_Dialog as Ui_Dialog_SuaThongTinKH
 from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
-from modules.service_orders import find_latest_order_by_phone
+from modules.service_orders import find_latest_order_by_phone, get_order
 from database.connection import ensure_mysql_ready, execute, fetch_all
 
 # Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
@@ -806,7 +806,15 @@ class CustomerManagerWidget(QWidget):
             table.setItem(row, 4, QTableWidgetItem(self._format_currency(history["tong_tien"])))
             table.setItem(row, 5, QTableWidgetItem(history["ktv"]))
 
-    def record_pos_invoice(self, customer_name, customer_phone, total_amount, line_items, created_at):
+    def record_pos_invoice(
+        self,
+        customer_name,
+        customer_phone,
+        total_amount,
+        line_items,
+        created_at,
+        related_order_no=None,
+    ):
         self.loyalty_rules = self._load_loyalty_rules()
         customer_phone = (customer_phone or "").strip()
         customer_name = (customer_name or "").strip() or "Khách lẻ"
@@ -845,27 +853,38 @@ class CustomerManagerWidget(QWidget):
         _apply_loyalty_rule(customer, self.loyalty_rules)
 
         technician_name = "POS"
+        order_for_vehicle = None
         try:
-            if customer_phone and customer_phone != "-":
-                latest_order = find_latest_order_by_phone(
+            ro = str(related_order_no or "").strip()
+            if ro:
+                order_for_vehicle = get_order(ro)
+            if not order_for_vehicle and customer_phone and customer_phone != "-":
+                order_for_vehicle = find_latest_order_by_phone(
                     customer_phone,
                     statuses={"DONE", "INVOICED", "PAID", "AFTERCARE"},
                 )
-                if not latest_order:
-                    # Nếu chưa chuyển trạng thái hoàn tất, vẫn lấy KTV từ lệnh gần nhất theo SĐT.
-                    latest_order = find_latest_order_by_phone(customer_phone)
-                assigned_to = str((latest_order or {}).get("assigned_to", "")).strip()
-                if assigned_to:
-                    technician_name = assigned_to
+            if not order_for_vehicle and customer_phone and customer_phone != "-":
+                order_for_vehicle = find_latest_order_by_phone(customer_phone)
+            assigned_to = str((order_for_vehicle or {}).get("assigned_to", "")).strip()
+            if assigned_to:
+                technician_name = assigned_to
         except Exception:
             technician_name = "POS"
+            order_for_vehicle = None
+
+        car_model = str((order_for_vehicle or {}).get("car_model", "")).strip()
+        plate = str((order_for_vehicle or {}).get("plate", "")).strip()
+        if car_model and not str(customer.get("hang_xe", "")).strip():
+            customer["hang_xe"] = car_model
+        if plate and not str(customer.get("bien_so", "")).strip():
+            customer["bien_so"] = plate
 
         service_text = ", ".join(str(it.get("name", "")) for it in (line_items or []) if it.get("name"))
         self.service_history_map.setdefault(customer["id"], []).append(
             {
                 "ngay": created_at.split(" ")[0] if created_at else datetime.now().strftime("%d/%m/%Y"),
-                "hang_xe": customer.get("hang_xe", ""),
-                "bien_so": customer.get("bien_so", ""),
+                "hang_xe": car_model or customer.get("hang_xe", ""),
+                "bien_so": plate or customer.get("bien_so", ""),
                 "dich_vu": service_text or "Hóa đơn POS",
                 "tong_tien": total_amount,
                 "ktv": technician_name,

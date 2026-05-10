@@ -28,9 +28,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from ui.compiled.ui_qlnhansu import Ui_Form as Ui_Form_QLNhanSu
-from modules.integration_data import get_pos_sales
 from modules.rbac_runtime import FUNCTION_TO_SECTION_KEY, save_section_permissions
 from modules.audit_log import append_audit_log
+
+from database.models import (
+    get_technician_commission_base,
+    insert_hr_employee,
+    load_hr_employees,
+    load_shift_map_for_all,
+    update_hr_employee,
+    update_hr_employee_status,
+    upsert_shift_cells_batch,
+)
 
 
 class EmployeeDialog(QDialog):
@@ -107,7 +116,6 @@ class QuanLyNhanVienWidget(QWidget):
         self.employees = []
         self.attendance_records = []
         self.accounts = []
-        self.next_employee_id = 1
         self.search_keyword = ""
         self.shift_templates = ["Sáng", "Chiều", "Tối", "Off"]
         self._is_rendering_shifts = False
@@ -122,6 +130,7 @@ class QuanLyNhanVienWidget(QWidget):
             ("Bán hàng POS", "Có", "Có", "Lễ tân được tạo đơn, Quản lý toàn quyền"),
             ("Quản lý hóa đơn", "Có", "Có", "Xem và xuất danh sách hóa đơn"),
             ("Kho & Vật tư", "Có", "Không", "Chỉ Quản lý được chỉnh sửa tồn kho"),
+            ("Danh mục dịch vụ & định mức", "Có", "Không", "Giá dịch vụ và BOM vật tư; tách khỏi Tiếp nhận/POS"),
             ("Báo cáo thống kê", "Có", "Không", "Lễ tân không xem báo cáo tài chính"),
             ("Cài đặt hệ thống", "Có", "Không", "Cấu hình hệ thống chỉ cho Quản lý"),
             ("Quản lý nhân sự", "Có", "Không", "Quản lý chấm công, phân ca, RBAC"),
@@ -130,7 +139,10 @@ class QuanLyNhanVienWidget(QWidget):
 
         self._setup_tables()
         self._apply_dark_style()
-        self._seed_demo_data()
+        self._load_employees_from_db()
+        self._hydrate_shifts_from_db()
+        self._seed_demo_attendance_if_needed()
+        self._link_demo_accounts()
         self._setup_defaults()
         self._setup_password_visibility_toggle()
         self._add_permission_edit_buttons()
@@ -329,6 +341,7 @@ class QuanLyNhanVienWidget(QWidget):
         self.ui.btn_edit_employee.clicked.connect(self.edit_employee)
         self.ui.btn_delete_employee.clicked.connect(self.toggle_employee_status)
         self.ui.cmb_department_filter.currentIndexChanged.connect(self.render_shift_table)
+        self.ui.date_week_start.dateChanged.connect(self.render_shift_table)
         self.ui.btn_assign_shift.clicked.connect(self.auto_assign_shift)
         self.ui.btn_save_shift.clicked.connect(self._notify_saved_shift)
         self.ui.tbl_shifts.itemChanged.connect(self._on_shift_item_changed)
@@ -341,17 +354,43 @@ class QuanLyNhanVienWidget(QWidget):
         self.ui.btn_export_commission.clicked.connect(self._notify_export_commission)
         self.ui.btn_refresh_commission.clicked.connect(self.refresh_commission_tab)
 
+        self.ui.cmb_commission_type.currentIndexChanged.connect(self.render_commission_table)
+        self.ui.cmb_commission_period.currentIndexChanged.connect(self.render_commission_table)
+
         self.ui.btn_create_account.clicked.connect(self.create_or_update_account)
         self.ui.btn_reset_password.clicked.connect(self.reset_account_password)
         self.ui.btn_lock_account.clicked.connect(self.toggle_account_lock)
         self.ui.cmb_rbac_employee.currentIndexChanged.connect(self._sync_rbac_form_from_account)
 
-    def _seed_demo_data(self):
-        self._append_employee("Nguyen Minh Dat", "0902111222", "Kỹ thuật", "10/01/2025", "Đang làm")
-        self._append_employee("Tran Bao Ngoc", "0913555444", "Lễ tân", "18/03/2025", "Đang làm")
-        self._append_employee("Le Quoc Khanh", "0938222111", "Kỹ thuật", "25/11/2024", "Đang làm")
-        self._append_employee("Pham Anh Thu", "0977666111", "Quản lý", "15/07/2023", "Đang làm")
+    def _load_employees_from_db(self):
+        self.employees = []
+        try:
+            for r in load_hr_employees():
+                self.employees.append(
+                    {
+                        "id": int(r["id"]),
+                        "name": str(r.get("full_name", "")).strip(),
+                        "phone": str(r.get("phone", "")).strip(),
+                        "role": str(r.get("role", "")).strip(),
+                        "join_date": str(r.get("join_date") or "").strip(),
+                        "status": str(r.get("status") or "Đang làm").strip(),
+                        "shifts": {},
+                    }
+                )
+        except Exception as exc:
+            QMessageBox.warning(self, "Nhân sự", f"Không tải được danh sách nhân viên từ MySQL:\n{exc}")
 
+    def _hydrate_shifts_from_db(self):
+        try:
+            smap = load_shift_map_for_all()
+            for emp in self.employees:
+                emp["shifts"] = dict(smap.get(int(emp["id"]), {}))
+        except Exception as exc:
+            QMessageBox.warning(self, "Phân ca", f"Không tải được lịch phân ca:\n{exc}")
+
+    def _seed_demo_attendance_if_needed(self):
+        if self.attendance_records:
+            return
         today = date.today()
         for emp in self.employees:
             for i in range(8):
@@ -371,28 +410,42 @@ class QuanLyNhanVienWidget(QWidget):
                     }
                 )
 
-        self.accounts = [
-            {
-                "username": "quanly.thu",
-                "employee_id": 4,
-                "role": "Quản lý",
-                "locked": False,
-                "password": "123456",
-                "last_login": "20/04/2026 08:12",
-            },
-            {
-                "username": "letan.ngoc",
-                "employee_id": 2,
-                "role": "Lễ tân",
-                "locked": False,
-                "password": "123456",
-                "last_login": "20/04/2026 07:45",
-            },
-        ]
+    def _link_demo_accounts(self):
+        by_name = {e["name"]: e for e in self.employees}
+        self.accounts = []
+        thu = by_name.get("Pham Anh Thu")
+        ngoc = by_name.get("Tran Bao Ngoc")
+        if thu:
+            self.accounts.append(
+                {
+                    "username": "quanly.thu",
+                    "employee_id": thu["id"],
+                    "role": "Quản lý",
+                    "locked": False,
+                    "password": "123456",
+                    "last_login": "20/04/2026 08:12",
+                }
+            )
+        if ngoc:
+            self.accounts.append(
+                {
+                    "username": "letan.ngoc",
+                    "employee_id": ngoc["id"],
+                    "role": "Lễ tân",
+                    "locked": False,
+                    "password": "123456",
+                    "last_login": "20/04/2026 07:45",
+                }
+            )
 
     def _append_employee(self, name, phone, role, join_date, status):
+        try:
+            new_id = insert_hr_employee(name, phone, role, join_date, status)
+        except Exception as exc:
+            QMessageBox.warning(self, "Lỗi lưu", f"Không thể thêm nhân viên (trùng SĐT hoặc lỗi DB):\n{exc}")
+            return None
         employee = {
-            "id": self.next_employee_id,
+            "id": int(new_id),
             "name": name,
             "phone": phone,
             "role": role,
@@ -400,7 +453,6 @@ class QuanLyNhanVienWidget(QWidget):
             "status": status,
             "shifts": {},
         }
-        self.next_employee_id += 1
         self.employees.append(employee)
         return employee
 
@@ -449,8 +501,9 @@ class QuanLyNhanVienWidget(QWidget):
         dialog = EmployeeDialog(self)
         if dialog.exec_() and dialog.saved_data:
             saved = dialog.saved_data
-            self._append_employee(saved["name"], saved["phone"], saved["role"], saved["join_date"], saved["status"])
-            self._render_all()
+            emp = self._append_employee(saved["name"], saved["phone"], saved["role"], saved["join_date"], saved["status"])
+            if emp:
+                self._render_all()
 
     def _selected_employee(self):
         row = self.ui.tbl_employees.currentRow()
@@ -475,7 +528,20 @@ class QuanLyNhanVienWidget(QWidget):
             return
         dialog = EmployeeDialog(self, employee=emp)
         if dialog.exec_() and dialog.saved_data:
-            emp.update(dialog.saved_data)
+            saved = dialog.saved_data
+            try:
+                update_hr_employee(
+                    emp["id"],
+                    saved["name"],
+                    saved["phone"],
+                    saved["role"],
+                    saved["join_date"],
+                    saved["status"],
+                )
+            except Exception as exc:
+                QMessageBox.warning(self, "Lỗi lưu", f"Không thể cập nhật nhân viên:\n{exc}")
+                return
+            emp.update(saved)
             self._render_all()
 
     def toggle_employee_status(self):
@@ -483,7 +549,13 @@ class QuanLyNhanVienWidget(QWidget):
         if not emp:
             QMessageBox.warning(self, "Chưa chọn nhân viên", "Vui lòng chọn nhân viên.")
             return
-        emp["status"] = "Tạm nghỉ" if emp["status"] == "Đang làm" else "Đang làm"
+        new_status = "Tạm nghỉ" if emp["status"] == "Đang làm" else "Đang làm"
+        try:
+            update_hr_employee_status(emp["id"], new_status)
+        except Exception as exc:
+            QMessageBox.warning(self, "Lỗi lưu", f"Không thể đổi trạng thái:\n{exc}")
+            return
+        emp["status"] = new_status
         self._render_all()
 
     def _week_dates(self):
@@ -503,10 +575,10 @@ class QuanLyNhanVienWidget(QWidget):
                 continue
             if emp["status"] != "Đang làm":
                 for d in dates:
-                    emp["shifts"][d.strftime("%d/%m")] = "Off"
+                    emp["shifts"][d.strftime("%Y-%m-%d")] = "Off"
                 continue
             for idx, d in enumerate(dates):
-                emp["shifts"][d.strftime("%d/%m")] = self.shift_templates[(emp["id"] + idx) % 3]
+                emp["shifts"][d.strftime("%Y-%m-%d")] = self.shift_templates[(emp["id"] + idx) % 3]
         self.render_shift_table()
 
     def render_shift_table(self):
@@ -520,7 +592,7 @@ class QuanLyNhanVienWidget(QWidget):
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
             table.setItem(row, 0, name_item)
             for col, d in enumerate(week_dates, start=1):
-                key = d.strftime("%d/%m")
+                key = d.strftime("%Y-%m-%d")
                 table.setItem(row, col, QTableWidgetItem(emp["shifts"].get(key, "-")))
         self._is_rendering_shifts = False
 
@@ -540,12 +612,27 @@ class QuanLyNhanVienWidget(QWidget):
             return
 
         employee = visible_employees[item.row()]
-        key = week_dates[col_idx].strftime("%d/%m")
+        key = week_dates[col_idx].strftime("%Y-%m-%d")
         value = (item.text() or "").strip()
         employee["shifts"][key] = value if value else "-"
 
     def _notify_saved_shift(self):
-        QMessageBox.information(self, "Phân ca", "Đã lưu lịch làm việc tuần hiện tại.")
+        week_dates = self._week_dates()
+        batch = []
+        for emp in self.employees:
+            for d in week_dates:
+                iso = d.strftime("%Y-%m-%d")
+                val = emp["shifts"].get(iso, "-")
+                batch.append((emp["id"], iso, val))
+        try:
+            upsert_shift_cells_batch(batch)
+            QMessageBox.information(
+                self,
+                "Phân ca",
+                "Đã lưu lịch làm việc tuần hiện tại vào MySQL (bảng hr_shift_cells).",
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "Phân ca", f"Không thể lưu lịch làm việc:\n{exc}")
 
     def render_attendance_table(self):
         table = self.ui.tbl_attendance
@@ -611,24 +698,33 @@ class QuanLyNhanVienWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Lỗi xuất file", f"Không thể xuất báo cáo chấm công.\nChi tiết: {e}")
 
+    def _commission_period_bounds(self):
+        """Trả về (start_date, end_date) ngày đầu/cuối kỳ theo combo."""
+        today = date.today()
+        text = self.ui.cmb_commission_period.currentText()
+        if text == "Theo tháng":
+            start = today.replace(day=1)
+            if start.month == 12:
+                next_month = date(start.year + 1, 1, 1)
+            else:
+                next_month = date(start.year, start.month + 1, 1)
+            end = next_month - timedelta(days=1)
+            return start, end
+        # Theo tuần: Thứ 2 → Chủ nhật (tuần hiện tại)
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+        return start, end
+
     def render_commission_table(self):
         table = self.ui.tbl_commission
         table.setRowCount(0)
         mode = self.ui.cmb_commission_type.currentText()
-        pos_sales = get_pos_sales()
-        integrated_jobs = sum(len(s.get("items", [])) for s in pos_sales)
-        integrated_revenue = sum(int(s.get("grand_total", 0) or 0) for s in pos_sales)
-        technicians = [e for e in self.employees if e["role"] == "Kỹ thuật" and e["status"] == "Đang làm"]
-        split_jobs = (integrated_jobs // len(technicians)) if technicians else 0
-        split_revenue = (integrated_revenue // len(technicians)) if technicians else 0
+        d0, d1 = self._commission_period_bounds()
+
         for emp in self.employees:
             if emp["role"] != "Kỹ thuật" or emp["status"] != "Đang làm":
                 continue
-            jobs = 18 + emp["id"] * 3
-            revenue = jobs * 180000
-            # Liên kết POS -> Nhân sự: phân bổ công việc/doanh thu tích hợp cho KTV.
-            jobs += split_jobs
-            revenue += split_revenue
+            jobs, revenue = get_technician_commission_base(emp["name"], d0, d1)
             if mode == "Theo khối lượng công việc":
                 rate = 6.0
             elif mode == "Theo dịch vụ thực hiện":
@@ -636,7 +732,7 @@ class QuanLyNhanVienWidget(QWidget):
             else:
                 rate = 8.0
             provisional = revenue * rate / 100
-            adjustment = 100000 if jobs >= 20 else 0
+            adjustment = 50000 if jobs >= 20 else 0
             total = provisional + adjustment
 
             row = table.rowCount()

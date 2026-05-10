@@ -14,11 +14,13 @@ class QuanLyVatTu:
             # Convert to old format for compatibility
             return [{
                 "id": p["id"],
+                "ma": str(p.get("product_code") or "").strip() or f"VT{int(p['id']):03d}",
                 "ten": p["name"],
                 "loai": p["category"],
                 "don_vi": p["unit"],
                 "gia": float(p["price"]),
-                "min": p["min_stock"]
+                "min": p["min_stock"],
+                "ton": int(p.get("current_stock") or 0),
             } for p in products]
         except Exception as e:
             print(f"Error loading products: {e}")
@@ -32,11 +34,13 @@ class QuanLyVatTu:
             filtered = [p for p in products if keyword.lower() in p["name"].lower()]
             return [{
                 "id": p["id"],
+                "ma": str(p.get("product_code") or "").strip() or f"VT{int(p['id']):03d}",
                 "ten": p["name"],
                 "loai": p["category"],
                 "don_vi": p["unit"],
                 "gia": float(p["price"]),
-                "min": p["min_stock"]
+                "min": p["min_stock"],
+                "ton": int(p.get("current_stock") or 0),
             } for p in filtered]
         except Exception as e:
             print(f"Error searching products: {e}")
@@ -80,11 +84,13 @@ class QuanLyVatTu:
                 return None
             return {
                 "id": product["id"],
+                "ma": str(product.get("product_code") or "").strip() or f"VT{int(product['id']):03d}",
                 "ten": product["name"],
                 "loai": product["category"],
                 "don_vi": product["unit"],
                 "gia": float(product["price"]),
-                "min": product["min_stock"]
+                "min": product["min_stock"],
+                "ton": int(product.get("current_stock") or 0),
             }
         except Exception as e:
             print(f"Error getting product by id: {e}")

@@ -15,6 +15,7 @@ DEFAULT_SECTION_PERMISSIONS = {
         "invoices": True,
         "audit": True,
         "settings": True,
+        "svc_catalog": True,
     },
     "Lễ tân": {
         "dashboard": True,
@@ -29,6 +30,7 @@ DEFAULT_SECTION_PERMISSIONS = {
         "invoices": True,
         "audit": False,
         "settings": False,
+        "svc_catalog": False,
     },
 }
 
@@ -70,6 +72,7 @@ FUNCTION_TO_SECTION_KEY = {
     "Bán hàng POS": "pos",
     "Quản lý hóa đơn": "invoices",
     "Kho & Vật tư": "kho",
+    "Danh mục dịch vụ & định mức": "svc_catalog",
     "Báo cáo thống kê": "baocao",
     "Cài đặt hệ thống": "settings",
     "Quản lý nhân sự": "nhansu",
@@ -84,6 +87,7 @@ def _default_payload():
 def load_permissions():
     ensure_mysql_ready()
     payload = _default_payload()
+    key_alias = {"hoadon": "invoices"}
     rows = fetch_all(
         "SELECT role_name, section_key, can_access FROM rbac_section_permissions ORDER BY id ASC"
     )
@@ -91,10 +95,12 @@ def load_permissions():
         merged = {}
         for row in rows:
             role = row.get("role_name")
-            key = row.get("section_key")
+            key = str(row.get("section_key") or "").strip().lower()
+            key = key_alias.get(key, key)
             if not role or not key:
                 continue
-            merged.setdefault(role, {})
+            if role not in merged:
+                merged[role] = dict(payload.get("sections", {}).get(role, {}))
             merged[role][key] = bool(row.get("can_access"))
         payload["sections"].update(merged)
     return payload

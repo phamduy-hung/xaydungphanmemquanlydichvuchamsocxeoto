@@ -104,26 +104,16 @@ class KhoVatTuUI(QWidget):
 
             self.table.setRowCount(len(data))
 
-            # Get stock info
-            stock_info = self.ton_kho.xem_ton()
-            if not stock_info or not isinstance(stock_info, list):
-                stock_info = []
-
             for row, vt in enumerate(data):
                 self.table.setItem(row, 0, QTableWidgetItem(str(vt["id"])))
-                self.table.setItem(row, 1, QTableWidgetItem(f"VT{vt['id']:03d}"))  # Simple code
+                ma = str(vt.get("ma") or "").strip() or f"VT{vt['id']:03d}"
+                self.table.setItem(row, 1, QTableWidgetItem(ma))
                 self.table.setItem(row, 2, QTableWidgetItem(vt["ten"]))
                 self.table.setItem(row, 3, QTableWidgetItem(vt["loai"]))
                 self.table.setItem(row, 4, QTableWidgetItem(vt["don_vi"]))
                 self.table.setItem(row, 5, QTableWidgetItem(f"{vt['gia']:,.0f} VND"))
 
-                # Get current stock
-                current_stock = 0
-                for name, stock in stock_info:
-                    if name == vt["ten"]:
-                        current_stock = stock
-                        break
-
+                current_stock = int(vt.get("ton") or 0)
                 item = QTableWidgetItem(str(current_stock))
                 if current_stock <= vt["min"]:
                     item.setBackground(Qt.red)

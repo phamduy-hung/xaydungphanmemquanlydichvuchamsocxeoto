@@ -75,7 +75,9 @@ def append_invoice(invoice):
             _num(data.get("discount_value", data.get("discount_amount", 0))),
             _num(data.get("vat_percent", 10)),
             _num(data.get("vat_amount", 0)),
-            _num(data.get("total", data.get("total_amount", 0))),
+            _num(
+                data.get("grand_total", data.get("total", data.get("total_amount", 0)))
+            ),
             str(data.get("payment_method", "bank")),
             str(data.get("status", "paid")).lower(),
             str(data.get("order_id", data.get("linked_order_no", ""))),

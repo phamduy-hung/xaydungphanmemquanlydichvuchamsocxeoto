@@ -10,12 +10,12 @@ const SERVICES = [
   'Bảo dưỡng tổng quát',
   'Thay dầu máy',
   'Sửa chữa điện',
-  'Khác',
 ];
 
 interface BookingFormData {
   ho_ten: string;
   sdt: string;
+  hang_xe: string;
   bien_so: string;
   dich_vu: string;
   ngay_hen: string;
@@ -29,9 +29,11 @@ const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefi
 
 export const BookingForm: React.FC = () => {
   const calendarWrapRef = useRef<HTMLDivElement>(null);
+  const serviceWrapRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<BookingFormData>({
     ho_ten: '',
     sdt: '',
+    hang_xe: '',
     bien_so: '',
     dich_vu: '',
     ngay_hen: '',
@@ -43,6 +45,8 @@ export const BookingForm: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [serviceOptions, setServiceOptions] = useState<string[]>(SERVICES);
+  const [showServiceMenu, setShowServiceMenu] = useState(false);
 
   const formatDisplayDate = (d: Date): string => {
     const dd = String(d.getDate()).padStart(2, '0');
@@ -62,8 +66,66 @@ export const BookingForm: React.FC = () => {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (!serviceWrapRef.current) return;
+      if (!serviceWrapRef.current.contains(e.target as Node)) {
+        setShowServiceMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchServices = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/services`);
+        const data = await res.json();
+        const items = Array.isArray(data?.services) ? data.services : [];
+        const cleaned = items.map((x: string) => String(x || '').trim()).filter(Boolean);
+        if (mounted && cleaned.length) {
+          setServiceOptions(cleaned);
+        }
+      } catch (_) {
+        // Keep local fallback list.
+      }
+    };
+    fetchServices();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const normalizeText = (text: string) =>
+    (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const splitFormula = (text: string) =>
+    (text || '')
+      .split(/[+,;/|]/)
+      .map(x => x.trim())
+      .filter(Boolean);
+
+  const appendService = (serviceName: string) => {
+    const chosen = (serviceName || '').trim();
+    if (!chosen) return;
+    const current = splitFormula(form.dich_vu);
+    const normSet = new Set(current.map(normalizeText));
+    if (!normSet.has(normalizeText(chosen))) {
+      current.push(chosen);
+    }
+    setForm(prev => ({ ...prev, dich_vu: current.join(' + ') }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +147,8 @@ export const BookingForm: React.FC = () => {
       const data = await res.json();
       if (data.success) {
         setStatus('success');
-        setForm({ ho_ten: '', sdt: '', bien_so: '', dich_vu: '', ngay_hen: '', gio_hen: '', ghi_chu: '' });
+        setForm({ ho_ten: '', sdt: '', hang_xe: '', bien_so: '', dich_vu: '', ngay_hen: '', gio_hen: '', ghi_chu: '' });
+        setShowServiceMenu(false);
       } else {
         setErrorMsg(data.error || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
         setStatus('error');
@@ -177,8 +240,19 @@ export const BookingForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 2: Biển số + Dịch vụ */}
+            {/* Row 2: Hãng xe + Biển số */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className={labelClass}>Hãng xe</label>
+                <input
+                  type="text"
+                  name="hang_xe"
+                  value={form.hang_xe}
+                  onChange={handleChange}
+                  placeholder="Toyota, Honda, BMW..."
+                  className={inputClass}
+                />
+              </div>
               <div>
                 <label className={labelClass}>Biển số xe</label>
                 <input
@@ -190,23 +264,42 @@ export const BookingForm: React.FC = () => {
                   className={inputClass}
                 />
               </div>
-              <div>
+            </div>
+
+            {/* Row 3: Dịch vụ */}
+            <div className="grid grid-cols-1 gap-5">
+              <div ref={serviceWrapRef} className="relative">
                 <label className={labelClass}>Dịch vụ</label>
-                <select
+                <input
+                  type="text"
                   name="dich_vu"
                   value={form.dich_vu}
                   onChange={handleChange}
-                  className={`${inputClass} cursor-pointer [&>option]:bg-background`}
-                >
-                  <option value="">Chọn dịch vụ...</option>
-                  {SERVICES.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  onFocus={() => setShowServiceMenu(true)}
+                  placeholder="Ví dụ: Rửa xe + Đánh bóng + Vệ sinh nội thất"
+                  className={inputClass}
+                />
+                {showServiceMenu && (
+                  <div className="absolute z-40 mt-2 max-h-44 w-full overflow-y-auto rounded-xl border border-border bg-[#0f172a] p-1 shadow-2xl">
+                    {serviceOptions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-cyan-500/20"
+                        onClick={() => {
+                          appendService(s);
+                          setShowServiceMenu(true);
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Row 3: Ngày + Giờ */}
+            {/* Row 4: Ngày + Giờ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>Ngày hẹn</label>
@@ -289,7 +382,7 @@ export const BookingForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 4: Ghi chú */}
+            {/* Row 5: Ghi chú */}
             <div>
               <label className={labelClass}>Ghi chú thêm</label>
               <textarea

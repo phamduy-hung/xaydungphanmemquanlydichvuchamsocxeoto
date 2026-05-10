@@ -25,10 +25,13 @@ DROP TABLE IF EXISTS service_order_history;
 DROP TABLE IF EXISTS service_order_material_requests;
 DROP TABLE IF EXISTS service_order_services;
 DROP TABLE IF EXISTS service_orders;
+DROP TABLE IF EXISTS service_material_bom;
 DROP TABLE IF EXISTS web_bookings;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS rbac_section_permissions;
 DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS hr_shift_cells;
+DROP TABLE IF EXISTS hr_employees;
 DROP TABLE IF EXISTS system_settings;
 DROP TABLE IF EXISTS users;
 
@@ -79,6 +82,30 @@ CREATE TABLE audit_logs (
   INDEX idx_audit_time (at_time),
   INDEX idx_audit_actor (actor),
   INDEX idx_audit_action (action_key)
+) ENGINE=InnoDB;
+
+-- Nhân sự / KTV: nguồn duy nhất cho combobox phân công kỹ thuật viên (Tiếp nhận, web, cân bằng tải).
+CREATE TABLE hr_employees (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  full_name VARCHAR(120) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  role VARCHAR(30) NOT NULL,
+  join_date VARCHAR(20) NOT NULL DEFAULT '',
+  status VARCHAR(30) NOT NULL DEFAULT 'Đang làm',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_hr_phone (phone),
+  INDEX idx_hr_role_status (role, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE hr_shift_cells (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  employee_id BIGINT NOT NULL,
+  shift_date DATE NOT NULL,
+  shift_value VARCHAR(40) NOT NULL DEFAULT '-',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_hr_shift_emp_day (employee_id, shift_date),
+  INDEX idx_hr_shift_date (shift_date),
+  CONSTRAINT fk_hr_shift_employee FOREIGN KEY (employee_id) REFERENCES hr_employees (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE customers (
@@ -134,6 +161,7 @@ CREATE TABLE service_orders (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   order_no VARCHAR(30) NOT NULL UNIQUE,
   created_at DATETIME NOT NULL,
+  service_date DATE NULL,
   status VARCHAR(20) NOT NULL,
   customer_name VARCHAR(120) NOT NULL,
   customer_phone VARCHAR(20) NOT NULL,
@@ -142,7 +170,8 @@ CREATE TABLE service_orders (
   assigned_to VARCHAR(80) DEFAULT '',
   invoice_no VARCHAR(30) DEFAULT '',
   INDEX idx_so_phone (customer_phone),
-  INDEX idx_so_status (status)
+  INDEX idx_so_status (status),
+  INDEX idx_so_service_day (service_date)
 ) ENGINE=InnoDB;
 
 CREATE TABLE service_order_services (
@@ -207,7 +236,7 @@ CREATE TABLE invoice_items (
   FOREIGN KEY (invoice_no) REFERENCES invoices(invoice_no) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   product_code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(120) NOT NULL,
@@ -220,7 +249,31 @@ CREATE TABLE products (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE inventory_transactions (
+CREATE TABLE IF NOT EXISTS service_catalog (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  service_code VARCHAR(30) NOT NULL UNIQUE,
+  service_name VARCHAR(120) NOT NULL UNIQUE,
+  price DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Định mức vật tư theo dịch vụ (BOM): dịch vụ = tổng hợp các mặt hàng trong kho × số lượng.
+CREATE TABLE IF NOT EXISTS service_material_bom (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  service_catalog_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  qty INT NOT NULL DEFAULT 1,
+  note VARCHAR(160) DEFAULT '',
+  UNIQUE KEY uk_svc_product (service_catalog_id, product_id),
+  CONSTRAINT fk_bom_catalog FOREIGN KEY (service_catalog_id) REFERENCES service_catalog(id) ON DELETE CASCADE,
+  CONSTRAINT fk_bom_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  INDEX idx_bom_service (service_catalog_id),
+  INDEX idx_bom_product (product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS inventory_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   product_id BIGINT NOT NULL,
   transaction_type VARCHAR(20) NOT NULL, -- 'IN' or 'OUT'
@@ -306,6 +359,13 @@ INSERT INTO users (username, password_plain, role) VALUES
 ('letan', '123456', 'Lễ tân'),
 ('admin1', '123456', 'Quản lý');
 
+INSERT INTO hr_employees (full_name, phone, role, join_date, status) VALUES
+('Nguyen Minh Dat', '0902111222', 'Kỹ thuật', '10/01/2025', 'Đang làm'),
+('Tran Bao Ngoc', '0913555444', 'Lễ tân', '18/03/2025', 'Đang làm'),
+('Le Quoc Khanh', '0938222111', 'Kỹ thuật', '25/11/2024', 'Đang làm'),
+('Pham Anh Thu', '0977666111', 'Quản lý', '15/07/2023', 'Đang làm'),
+('Pham Van Phuc', '0966333444', 'Kỹ thuật', '01/02/2025', 'Đang làm');
+
 INSERT INTO system_settings (
   store_name, store_address, store_hotline, api_endpoint, api_key, sync_enabled,
   invoice_printer, default_vat, bank_name, bank_account_number, bank_account_name,
@@ -370,7 +430,40 @@ INSERT INTO products (product_code, name, category, unit, price, min_stock, curr
 ('VT007', 'Lốp xe Michelin 205/55R16', 'Phụ tùng', 'Cái', 2500000.00, 2, 4),
 ('VT008', 'Ắc quy 12V 60Ah', 'Phụ tùng', 'Cái', 800000.00, 3, 6),
 ('VT009', 'Dung dịch làm mát', 'Dung dịch', 'Lít', 60000.00, 10, 12),
-('VT010', 'Chổi lau kính', 'Công cụ', 'Cái', 20000.00, 10, 15);
+('VT010', 'Chổi lau kính', 'Công cụ', 'Cái', 20000.00, 10, 15),
+('VT011', 'Khăn microfiber đa năng ProCare', 'Dụng cụ', 'Cái', 35000.00, 15, 40),
+('VT012', 'Dung dịch đánh bóng Sonax Cut', 'Dung dịch', 'Chai', 285000.00, 5, 12),
+('VT013', 'Nano ceramic coating Sonax', 'Dung dịch', 'Chai', 920000.00, 3, 8),
+('VT014', 'Tẩy gầm & khoang máy ProCare', 'Dung dịch', 'Chai', 195000.00, 5, 14)
+ON DUPLICATE KEY UPDATE
+  name=VALUES(name),
+  category=VALUES(category),
+  unit=VALUES(unit),
+  price=VALUES(price),
+  min_stock=VALUES(min_stock),
+  current_stock=VALUES(current_stock);
+
+INSERT INTO service_catalog (service_code, service_name, price, is_active) VALUES
+('DV-RUA-THUONG', 'Rửa xe thường', 120000.00, 1),
+('DV-RUA-HUT-BUI', 'Rửa xe + hút bụi', 180000.00, 1),
+('DV-DANH-BONG', 'Đánh bóng', 450000.00, 1),
+('DV-CERAMIC-NHANH', 'Phủ ceramic nhanh', 1200000.00, 1),
+('DV-CERAMIC-CAO-CAP', 'Phủ ceramic cao cấp', 2500000.00, 1),
+('DV-VE-SINH-NOI-THAT', 'Vệ sinh nội thất', 350000.00, 1),
+('DV-VE-SINH-KHOANG-MAY', 'Vệ sinh khoang máy', 300000.00, 1),
+('DV-BAO-DUONG-TONG-QUAT', 'Bảo dưỡng tổng quát', 900000.00, 1),
+('DV-THAY-DAU-MAY', 'Thay dầu máy', 550000.00, 1),
+('DV-SUA-CHUA-DIEN', 'Sửa chữa điện', 700000.00, 1),
+('DV-RUA-XE', 'Rửa xe', 120000.00, 1),
+('DV-PHU-CERAMIC', 'Phủ ceramic', 1500000.00, 1)
+ON DUPLICATE KEY UPDATE
+  service_code=VALUES(service_code),
+  service_name=VALUES(service_name),
+  price=VALUES(price),
+  is_active=VALUES(is_active);
+
+-- Định mức vật tư (BOM): bảng service_material_bom — dữ liệu mẫu được nạp khi chạy app
+-- (database.models.seed_service_material_bom_defaults) để đồng bộ với mã nguồn.
 
 INSERT INTO web_bookings (booking_code, customer_name, phone, plate, service_name, appointment_date, appointment_time, notes, status, source) VALUES
 ('WB20260505001', 'Nguyễn Văn A', '0901122334', '51A-12345', 'Rửa xe', '2026-05-05', '09:30', 'Khách đến đúng giờ', 'ACCEPTED', 'web'),

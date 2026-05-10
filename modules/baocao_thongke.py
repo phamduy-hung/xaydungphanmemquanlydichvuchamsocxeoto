@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import importlib
 
 from PyQt5.QtCore import QDate, Qt
@@ -9,8 +9,11 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
+    QComboBox,
+    QScrollArea,
     QFileDialog,
     QMessageBox,
+    QPushButton,
 )
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPdfWriter
 
@@ -49,6 +52,10 @@ class ReportBarChartWidget(QWidget):
     def set_data(self, labels, values):
         self.labels = labels
         self.values = values
+        # Keep bars readable for long date ranges; scrollbar handled by container.
+        min_w = max(720, len(self.labels) * 64)
+        self.setMinimumWidth(min_w)
+        self.resize(min_w, self.height())
         self.update()
 
     def paintEvent(self, event):
@@ -87,6 +94,7 @@ class ReportBarChartWidget(QWidget):
         n = len(self.values)
         bar_space = chart_w / max(1, n)
         bar_w = max(8, int(bar_space * 0.58))
+        label_step = max(1, int(92 / max(1, bar_space)))
         for idx, (lbl, val) in enumerate(zip(self.labels, self.values)):
             x_center = left + int((idx + 0.5) * bar_space)
             bar_h = int((val / max_tick) * chart_h) if max_tick else 0
@@ -102,9 +110,11 @@ class ReportBarChartWidget(QWidget):
             tw = p.fontMetrics().horizontalAdvance(t)
             p.drawText(x_center - tw // 2, y - 4, t)
 
-            p.setFont(QFont("Segoe UI", 8))
-            lw = p.fontMetrics().horizontalAdvance(lbl)
-            p.drawText(x_center - lw // 2, top + chart_h + 16, lbl)
+            if idx % label_step == 0 or idx == n - 1:
+                p.setFont(QFont("Segoe UI", 8))
+                short_lbl = lbl[:5] if len(lbl) >= 5 else lbl
+                lw = p.fontMetrics().horizontalAdvance(short_lbl)
+                p.drawText(x_center - lw // 2, top + chart_h + 16, short_lbl)
 
 
 class ReportDonutChartWidget(QWidget):
@@ -167,6 +177,15 @@ class BaoCaoWindow(QMainWindow):
         today = QDate.currentDate()
         self.ui.date_den_ngay.setDate(today)
         self.ui.date_tu_ngay.setDate(today.addMonths(-1))
+        # Force Vietnamese date format: day/month/year.
+        self.ui.date_tu_ngay.setDisplayFormat("dd/MM/yyyy")
+        self.ui.date_den_ngay.setDisplayFormat("dd/MM/yyyy")
+        self.ui.date_tu_ngay.setCalendarPopup(True)
+        self.ui.date_den_ngay.setCalendarPopup(True)
+        self.cmb_period = QComboBox(self)
+        self.cmb_period.setObjectName("cmb_period")
+        self.cmb_period.addItems(["Tùy chọn", "Theo kỳ (30 ngày)", "Theo quý", "Theo năm"])
+        self.ui.layout_filter.insertWidget(0, self.cmb_period)
 
     def _setup_signals(self):
         for btn in [self.ui.btn_doanh_thu, self.ui.btn_dich_vu, self.ui.btn_nhan_vien]:
@@ -178,7 +197,107 @@ class BaoCaoWindow(QMainWindow):
         self.ui.btn_nhan_vien.clicked.connect(self.show_report_nhan_vien)
         self.ui.btn_xuat_file_excel.clicked.connect(self.export_excel)
         self.ui.btn_xuat_file_pdf.clicked.connect(self.export_pdf)
+        self.ui.date_tu_ngay.dateChanged.connect(self._refresh_active_report)
+        self.ui.date_den_ngay.dateChanged.connect(self._refresh_active_report)
+        self.cmb_period.currentIndexChanged.connect(self._on_period_changed)
+        self._ensure_btn_xem()
         self.ui.btn_doanh_thu.setChecked(True)
+
+    def _on_period_changed(self):
+        idx = self.cmb_period.currentIndex()
+        today = QDate.currentDate()
+        if idx == 1:  # kỳ
+            self.ui.date_tu_ngay.setDate(today.addDays(-29))
+            self.ui.date_den_ngay.setDate(today)
+        elif idx == 2:  # quý
+            self.ui.date_tu_ngay.setDate(today.addMonths(-3).addDays(1))
+            self.ui.date_den_ngay.setDate(today)
+        elif idx == 3:  # năm
+            self.ui.date_tu_ngay.setDate(today.addYears(-1).addDays(1))
+            self.ui.date_den_ngay.setDate(today)
+        self._refresh_active_report()
+
+    def _ensure_btn_xem(self):
+        if hasattr(self, "btn_xem_bao_cao"):
+            return
+        self.btn_xem_bao_cao = QPushButton("Xem")
+        self.btn_xem_bao_cao.setObjectName("btn_xem_bao_cao")
+        self.btn_xem_bao_cao.clicked.connect(self._refresh_active_report)
+        # Place right after "Đến ngày" input for intuitive flow.
+        try:
+            idx_end_date = self.ui.layout_filter.indexOf(self.ui.date_den_ngay)
+            if idx_end_date >= 0:
+                self.ui.layout_filter.insertWidget(idx_end_date + 1, self.btn_xem_bao_cao)
+            else:
+                self.ui.layout_filter.addWidget(self.btn_xem_bao_cao)
+        except Exception:
+            self.ui.layout_filter.addWidget(self.btn_xem_bao_cao)
+
+    def _refresh_active_report(self):
+        if self.ui.btn_dich_vu.isChecked():
+            self.show_report_dich_vu()
+        elif self.ui.btn_nhan_vien.isChecked():
+            self.show_report_nhan_vien()
+        else:
+            self.show_report_doanh_thu()
+
+    def _selected_period(self):
+        start_qdate = self.ui.date_tu_ngay.date()
+        end_qdate = self.ui.date_den_ngay.date()
+        start_dt = datetime(start_qdate.year(), start_qdate.month(), start_qdate.day(), 0, 0, 0)
+        end_dt = datetime(end_qdate.year(), end_qdate.month(), end_qdate.day(), 23, 59, 59)
+        if end_dt < start_dt:
+            start_dt, end_dt = end_dt, start_dt
+        return start_dt, end_dt
+
+    @staticmethod
+    def _parse_dt(raw):
+        if isinstance(raw, datetime):
+            return raw
+        text = str(raw or "").strip()
+        if not text:
+            return None
+        for fmt in (
+            "%d/%m/%Y %H:%M:%S",
+            "%d/%m/%Y %H:%M",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+        ):
+            try:
+                return datetime.strptime(text, fmt)
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def _fmt_vnd(value):
+        return f"{int(value):,}".replace(",", ".")
+
+    @staticmethod
+    def _month_key(dt_obj):
+        return dt_obj.strftime("%m/%Y")
+
+    def _load_pos_sales_in_period(self, start_dt, end_dt):
+        rows = []
+        for item in get_pos_sales():
+            dt_obj = self._parse_dt(item.get("created_at", ""))
+            if not dt_obj:
+                continue
+            if start_dt <= dt_obj <= end_dt:
+                rows.append(dict(item))
+        return rows
+
+    def _load_orders_in_period(self, start_dt, end_dt):
+        rows = []
+        for item in list_orders():
+            dt_obj = self._parse_dt(item.get("created_at", ""))
+            if not dt_obj:
+                continue
+            if start_dt <= dt_obj <= end_dt:
+                rows.append(dict(item))
+        return rows
 
     def _build_demo_charts(self):
         # Tỷ lệ hiển thị 2 khung biểu đồ: cột 60% - tròn 40%
@@ -190,7 +309,13 @@ class BaoCaoWindow(QMainWindow):
 
         bar_lay = QVBoxLayout(self.ui.chart_bar_month_placeholder)
         bar_lay.setContentsMargins(0, 0, 0, 0)
-        bar_lay.addWidget(self.bar_chart)
+        self.bar_scroll = QScrollArea()
+        self.bar_scroll.setWidgetResizable(False)
+        self.bar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.bar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.bar_scroll.setFrameShape(QScrollArea.NoFrame)
+        self.bar_scroll.setWidget(self.bar_chart)
+        bar_lay.addWidget(self.bar_scroll)
         bar_lay.setStretch(0, 1)
 
         pie_lay = QVBoxLayout(self.ui.chart_pie_revenue_placeholder)
@@ -479,58 +604,152 @@ class BaoCaoWindow(QMainWindow):
             QMessageBox.critical(self, "Loi", f"Khong the xuat PDF.\nChi tiet: {e}")
 
     def show_report_doanh_thu(self):
-        pos_sales = get_pos_sales()
-        pos_count = len(pos_sales)
+        start_dt, end_dt = self._selected_period()
+        pos_sales = self._load_pos_sales_in_period(start_dt, end_dt)
+        orders = self._load_orders_in_period(start_dt, end_dt)
+
         pos_revenue = sum(int(x.get("grand_total", 0) or 0) for x in pos_sales)
-        orders = list_orders()
         status_count = {}
         for item in orders:
             status = item.get("status", "UNKNOWN")
             status_count[status] = status_count.get(status, 0) + 1
+
+        daily_revenue = {}
+        for item in pos_sales:
+            dt_obj = self._parse_dt(item.get("created_at", ""))
+            if not dt_obj:
+                continue
+            key = dt_obj.strftime("%d/%m/%Y")
+            daily_revenue[key] = daily_revenue.get(key, 0) + int(item.get("grand_total", 0) or 0)
+
+        labels = []
+        values = []
+        cursor = datetime(start_dt.year, start_dt.month, start_dt.day)
+        end_day = datetime(end_dt.year, end_dt.month, end_dt.day)
+        while cursor <= end_day:
+            key = cursor.strftime("%d/%m/%Y")
+            labels.append(key)
+            values.append(int(daily_revenue.get(key, 0)))
+            cursor += timedelta(days=1)
+
+        web_customers = set()
+        desk_customers = set()
+        for item in orders:
+            phone = str(item.get("customer_phone", "")).strip()
+            if not phone:
+                continue
+            if str(item.get("source", "")).strip().lower() == "web":
+                web_customers.add(phone)
+            else:
+                desk_customers.add(phone)
+
         rows = [
-            ("Rửa xe + hút bụi", 120, "18.000.000"),
-            ("Phủ ceramic", 34, "22.100.000"),
-            ("Bảo dưỡng tổng quát", 15, "19.500.000"),
-            ("Doanh thu POS tích hợp", pos_count, f"{pos_revenue:,}".replace(",", ".")),
-            ("Lệnh dịch vụ đang xử lý", status_count.get("IN_SERVICE", 0), "-"),
-            ("Lệnh dịch vụ đã hoàn tất", status_count.get("DONE", 0), "-"),
-            ("Lệnh dịch vụ đã thanh toán", status_count.get("PAID", 0), "-"),
+            ("Doanh thu POS (đã thanh toán)", len(pos_sales), self._fmt_vnd(pos_revenue)),
+            ("Lệnh nguồn web", sum(1 for x in orders if str(x.get("source", "")).lower() == "web"), "-"),
+            ("Lệnh tiếp nhận trực tiếp", sum(1 for x in orders if str(x.get("source", "")).lower() != "web"), "-"),
+            ("Khách đặt lịch web (unique)", len(web_customers), "-"),
+            ("Khách đến trực tiếp (unique)", len(desk_customers), "-"),
+            ("Lệnh đang xử lý", status_count.get("IN_SERVICE", 0), "-"),
+            ("Lệnh đã hoàn tất", status_count.get("DONE", 0), "-"),
+            ("Lệnh đã thanh toán", status_count.get("PAID", 0), "-"),
         ]
-        self._render_table(["Dịch vụ", "Số lượt", "Doanh thu (VND)"], rows)
-        total = 59600000 + pos_revenue
-        self.ui.lbl_summary.setText(f"Tổng doanh thu: {total:,} VND".replace(",", "."))
-        self._update_demo_charts(
-            ["T1", "T2", "T3", "T4", "T5", "T6"],
-            [42, 55, 61, 58, 75, 69],
-            [("Rửa xe", 35, "#38bdf8"), ("Ceramic", 30, "#f59e0b"), ("Bảo dưỡng", 20, "#10b981"), ("Khác", 15, "#a78bfa")],
+        self._render_table(["Chỉ số", "Số lượng", "Giá trị"], rows)
+        self.ui.lbl_summary.setText(
+            f"Tổng doanh thu kỳ {start_dt.strftime('%d/%m/%Y')} - {end_dt.strftime('%d/%m/%Y')}: {self._fmt_vnd(pos_revenue)} VND"
         )
+
+        pie_total = len(web_customers) + len(desk_customers)
+        if pie_total > 0:
+            web_pct = int(round(len(web_customers) * 100 / pie_total))
+            desk_pct = max(0, 100 - web_pct)
+            pie_segments = [
+                ("Khách đặt lịch web", web_pct, "#38bdf8"),
+                ("Khách đến trực tiếp", desk_pct, "#10b981"),
+            ]
+        else:
+            pie_segments = [("Chưa có dữ liệu", 100, "#64748b")]
+        self._update_demo_charts(labels or ["-"], values or [0], pie_segments)
+        self.ui.group_chart_bar_month.setTitle("Biểu đồ cột: Doanh thu thực tế theo ngày")
+        self.ui.group_chart_pie_revenue.setTitle("Biểu đồ tròn: Khách web vs trực tiếp")
+        self.ui.lbl_chart_bar_month_desc.setText("Doanh thu POS thực tế theo từng ngày trong kỳ lọc (kể cả ngày không có doanh thu).")
+        self.ui.lbl_chart_pie_revenue_desc.setText("Tỷ lệ số khách đặt lịch web so với khách đến trực tiếp (unique theo SĐT).")
 
     def show_report_dich_vu(self):
-        rows = [
-            ("Rửa xe + hút bụi", 120),
-            ("Phủ ceramic", 34),
-            ("Vệ sinh khoang máy", 21),
-            ("Đánh bóng đèn pha", 17),
-        ]
-        self._render_table(["Dịch vụ", "Số lượt"], rows)
-        self.ui.lbl_summary.setText("Tổng lượt dịch vụ: 192")
-        self._update_demo_charts(
-            ["Top1", "Top2", "Top3", "Top4", "Top5"],
-            [120, 34, 21, 17, 14],
-            [("Rửa xe", 45, "#38bdf8"), ("Ceramic", 25, "#f59e0b"), ("Khoang máy", 18, "#10b981"), ("Khác", 12, "#a78bfa")],
-        )
+        start_dt, end_dt = self._selected_period()
+        orders = self._load_orders_in_period(start_dt, end_dt)
+        counts = {}
+        revenues = {}
+        for item in orders:
+            for svc in item.get("service_items", []) or []:
+                name = str(svc.get("service_name", "")).strip()
+                if not name:
+                    continue
+                counts[name] = counts.get(name, 0) + 1
+                revenues[name] = revenues.get(name, 0) + int(svc.get("unit_price", 0) or 0)
+
+        ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+        rows = [(name, qty, self._fmt_vnd(revenues.get(name, 0))) for name, qty in ranked]
+        self._render_table(["Dịch vụ", "Số lượt", "Doanh thu (VND)"], rows)
+        self.ui.lbl_summary.setText(f"Tổng lượt dịch vụ: {sum(counts.values())}")
+
+        top = ranked[:6]
+        bar_labels = [x[0][:12] + "..." if len(x[0]) > 12 else x[0] for x in top]
+        bar_values = [x[1] for x in top]
+        total = sum(x[1] for x in top)
+        pie_segments = []
+        colors = ["#38bdf8", "#f59e0b", "#10b981", "#a78bfa", "#ef4444", "#22d3ee"]
+        if total > 0:
+            for idx, (name, qty) in enumerate(top[:3]):
+                pct = int(round(qty * 100 / total))
+                pie_segments.append((name, pct, colors[idx % len(colors)]))
+        else:
+            pie_segments = [("Chưa có dữ liệu", 100, "#64748b")]
+        self._update_demo_charts(bar_labels or ["-"], bar_values or [0], pie_segments)
+        self.ui.group_chart_bar_month.setTitle("Biểu đồ cột: Top dịch vụ theo số lượt")
+        self.ui.group_chart_pie_revenue.setTitle("Biểu đồ tròn: Cơ cấu top dịch vụ")
+        self.ui.lbl_chart_bar_month_desc.setText("Top dịch vụ theo số lượt phát sinh trong kỳ.")
+        self.ui.lbl_chart_pie_revenue_desc.setText("Tỷ trọng các dịch vụ phổ biến nhất trong kỳ.")
 
     def show_report_nhan_vien(self):
-        rows = [
-            ("Minh", 58, "97%"),
-            ("Đạt", 47, "94%"),
-            ("Phúc", 45, "92%"),
-            ("Khánh", 42, "90%"),
-        ]
-        self._render_table(["Nhân viên", "Số xe phục vụ", "Hiệu suất"], rows)
-        self.ui.lbl_summary.setText("Số nhân viên có dữ liệu: 4")
-        self._update_demo_charts(
-            ["Minh", "Đạt", "Phúc", "Khánh"],
-            [58, 47, 45, 42],
-            [("Nhóm A", 40, "#38bdf8"), ("Nhóm B", 33, "#f59e0b"), ("Nhóm C", 27, "#10b981")],
-        )
+        start_dt, end_dt = self._selected_period()
+        orders = self._load_orders_in_period(start_dt, end_dt)
+
+        open_status = {"NEW_WEB", "CHECKED_IN", "QUOTED", "APPROVED", "IN_SERVICE", "WAITING_PARTS"}
+        served = {}
+        completed = {}
+        in_progress = {}
+        for item in orders:
+            tech = str(item.get("assigned_to", "")).strip() or "Chưa phân công"
+            served[tech] = served.get(tech, 0) + 1
+            status = str(item.get("status", "")).strip()
+            if status in {"DONE", "INVOICED", "PAID", "AFTERCARE"}:
+                completed[tech] = completed.get(tech, 0) + 1
+            if status in open_status:
+                in_progress[tech] = in_progress.get(tech, 0) + 1
+
+        techs = sorted(served.keys(), key=lambda t: (-served[t], t))
+        rows = []
+        for tech in techs:
+            s = served.get(tech, 0)
+            c = completed.get(tech, 0)
+            eff = int(round(c * 100 / s)) if s > 0 else 0
+            rows.append((tech, s, c, in_progress.get(tech, 0), f"{eff}%"))
+        self._render_table(["Nhân viên", "Tổng lệnh", "Đã hoàn tất", "Đang xử lý", "Hiệu suất"], rows)
+        self.ui.lbl_summary.setText(f"Số nhân viên có dữ liệu: {len(techs)}")
+
+        bar_labels = [x[0] for x in rows][:6]
+        bar_values = [x[1] for x in rows][:6]
+        top_total = sum(bar_values)
+        pie_segments = []
+        colors = ["#38bdf8", "#f59e0b", "#10b981", "#a78bfa", "#ef4444", "#22d3ee"]
+        if top_total > 0:
+            for idx, row in enumerate(rows[:3]):
+                pct = int(round(row[1] * 100 / top_total))
+                pie_segments.append((row[0], pct, colors[idx % len(colors)]))
+        else:
+            pie_segments = [("Chưa có dữ liệu", 100, "#64748b")]
+        self._update_demo_charts(bar_labels or ["-"], bar_values or [0], pie_segments)
+        self.ui.group_chart_bar_month.setTitle("Biểu đồ cột: Khối lượng theo nhân viên")
+        self.ui.group_chart_pie_revenue.setTitle("Biểu đồ tròn: Tỷ trọng theo nhân viên")
+        self.ui.lbl_chart_bar_month_desc.setText("Số lệnh theo nhân viên trong kỳ lọc.")
+        self.ui.lbl_chart_pie_revenue_desc.setText("Tỷ trọng khối lượng xử lý của các nhân viên chính.")

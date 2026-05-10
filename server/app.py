@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+import sys
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -19,6 +20,9 @@ app = Flask(__name__)
 CORS(app)  # Cho phép web frontend (localhost:5173) gọi API này
 
 DB_PATH = Path(__file__).resolve().parent / "bookings.db"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # ──────────────────────────────────────────────
@@ -32,6 +36,7 @@ def init_db():
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             ho_ten      TEXT NOT NULL,
             sdt         TEXT NOT NULL,
+            hang_xe     TEXT,
             bien_so     TEXT,
             dich_vu     TEXT,
             ngay_hen    TEXT,
@@ -41,6 +46,11 @@ def init_db():
             created_at  TEXT DEFAULT (datetime('now', 'localtime'))
         )
     """)
+    # Backward-compatible migration for existing SQLite files.
+    cols = c.execute("PRAGMA table_info(bookings)").fetchall()
+    col_names = {str(x[1]) for x in cols}
+    if "hang_xe" not in col_names:
+        c.execute("ALTER TABLE bookings ADD COLUMN hang_xe TEXT")
     conn.commit()
     conn.close()
 
@@ -49,6 +59,32 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _load_service_names():
+    try:
+        from database.models import load_service_catalog
+
+        rows = load_service_catalog(active_only=True) or []
+        names = [str(x.get("service_name", "")).strip() for x in rows if str(x.get("service_name", "")).strip()]
+        if names:
+            return names
+    except Exception:
+        pass
+    return [
+        "Rửa xe thường",
+        "Rửa xe + hút bụi",
+        "Đánh bóng",
+        "Phủ ceramic nhanh",
+        "Phủ ceramic cao cấp",
+        "Vệ sinh nội thất",
+        "Vệ sinh khoang máy",
+        "Bảo dưỡng tổng quát",
+        "Thay dầu máy",
+        "Sửa chữa điện",
+        "Rửa xe",
+        "Phủ ceramic",
+    ]
 
 
 # ──────────────────────────────────────────────
@@ -67,6 +103,7 @@ def create_booking():
 
     ho_ten  = (data.get("ho_ten") or "").strip()
     sdt     = (data.get("sdt") or "").strip()
+    hang_xe = (data.get("hang_xe") or "").strip()
     bien_so = (data.get("bien_so") or "").strip()
     dich_vu = (data.get("dich_vu") or "").strip()
     ngay_hen = (data.get("ngay_hen") or "").strip()
@@ -76,12 +113,30 @@ def create_booking():
     if not ho_ten or not sdt:
         return jsonify({"success": False, "error": "Thiếu Họ tên hoặc Số điện thoại"}), 400
 
+    try:
+        from modules.service_orders import (
+            assert_can_add_web_booking_pending_for_day,
+            parse_appointment_date_to_date,
+        )
+
+        day = parse_appointment_date_to_date(ngay_hen)
+        assert_can_add_web_booking_pending_for_day(day)
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 429
+    except Exception:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Không kiểm tra được công suất cửa hàng (MySQL). Vui lòng thử lại sau.",
+            }
+        ), 503
+
     conn = get_db()
     try:
         cursor = conn.execute(
-            """INSERT INTO bookings (ho_ten, sdt, bien_so, dich_vu, ngay_hen, gio_hen, ghi_chu)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (ho_ten, sdt, bien_so, dich_vu, ngay_hen, gio_hen, ghi_chu),
+            """INSERT INTO bookings (ho_ten, sdt, hang_xe, bien_so, dich_vu, ngay_hen, gio_hen, ghi_chu)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ho_ten, sdt, hang_xe, bien_so, dich_vu, ngay_hen, gio_hen, ghi_chu),
         )
         conn.commit()
         booking_id = cursor.lastrowid
@@ -93,6 +148,11 @@ def create_booking():
         "message": "Đặt lịch thành công! Chúng tôi sẽ liên hệ xác nhận sớm.",
         "booking_id": booking_id,
     }), 201
+
+
+@app.route("/api/services", methods=["GET"])
+def get_services():
+    return jsonify({"services": _load_service_names()})
 
 
 @app.route("/api/bookings/pending", methods=["GET"])
