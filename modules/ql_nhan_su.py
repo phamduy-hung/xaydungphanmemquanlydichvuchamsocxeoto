@@ -1,6 +1,7 @@
 import sys
 import csv
 import importlib
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QHBoxLayout,
     QFileDialog,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -35,11 +37,19 @@ from database.models import (
     get_technician_commission_base,
     insert_hr_employee,
     load_hr_employees,
+    load_hr_monthly_salary_map,
     load_shift_map_for_all,
     update_hr_employee,
     update_hr_employee_status,
+    upsert_hr_monthly_salary,
     upsert_shift_cells_batch,
 )
+
+ROLE_BASE_MONTHLY_SALARY = {
+    "Kỹ thuật": 8_000_000,
+    "Lễ tân": 7_000_000,
+    "Quản lý": 12_000_000,
+}
 
 
 class EmployeeDialog(QDialog):
@@ -119,6 +129,7 @@ class QuanLyNhanVienWidget(QWidget):
         self.search_keyword = ""
         self.shift_templates = ["Sáng", "Chiều", "Tối", "Off"]
         self._is_rendering_shifts = False
+        self._is_rendering_commission = False
         self._password_visible = False
         self._editing_permissions = False
         self.permission_matrix = [
@@ -147,6 +158,7 @@ class QuanLyNhanVienWidget(QWidget):
         self._setup_password_visibility_toggle()
         self._add_permission_edit_buttons()
         self._add_dynamic_commission_refresh_button()
+        self._setup_attendance_summary_label()
         self._setup_signals()
         self._render_all()
 
@@ -292,7 +304,6 @@ class QuanLyNhanVienWidget(QWidget):
         for table in [
             self.ui.tbl_employees,
             self.ui.tbl_attendance,
-            self.ui.tbl_commission,
             self.ui.tbl_rbac_permissions,
             self.ui.tbl_accounts,
         ]:
@@ -302,6 +313,18 @@ class QuanLyNhanVienWidget(QWidget):
             table.verticalHeader().setVisible(False)
             table.setAlternatingRowColors(True)
             table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        commission_table = self.ui.tbl_commission
+        commission_table.setSelectionBehavior(commission_table.SelectRows)
+        commission_table.setSelectionMode(commission_table.SingleSelection)
+        commission_table.setEditTriggers(
+            commission_table.DoubleClicked
+            | commission_table.SelectedClicked
+            | commission_table.EditKeyPressed
+        )
+        commission_table.verticalHeader().setVisible(False)
+        commission_table.setAlternatingRowColors(True)
+        commission_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.ui.tbl_shifts.setSelectionBehavior(self.ui.tbl_shifts.SelectItems)
         self.ui.tbl_shifts.setSelectionMode(self.ui.tbl_shifts.SingleSelection)
@@ -356,6 +379,7 @@ class QuanLyNhanVienWidget(QWidget):
 
         self.ui.cmb_commission_type.currentIndexChanged.connect(self.render_commission_table)
         self.ui.cmb_commission_period.currentIndexChanged.connect(self.render_commission_table)
+        self.ui.tbl_commission.itemChanged.connect(self._on_commission_item_changed)
 
         self.ui.btn_create_account.clicked.connect(self.create_or_update_account)
         self.ui.btn_reset_password.clicked.connect(self.reset_account_password)
@@ -634,29 +658,161 @@ class QuanLyNhanVienWidget(QWidget):
         except Exception as exc:
             QMessageBox.warning(self, "Phân ca", f"Không thể lưu lịch làm việc:\n{exc}")
 
+    @staticmethod
+    def _is_off_shift(shift_value: str) -> bool:
+        text = str(shift_value or "").strip().lower()
+        return text in {"", "-", "off", "nghỉ", "nghi"}
+
+    def _attendance_records_index(self):
+        index = {}
+        for rec in self.attendance_records:
+            try:
+                work_day = datetime.strptime(rec["date"], "%d/%m/%Y").date()
+            except Exception:
+                continue
+            index[(int(rec["employee_id"]), work_day.strftime("%Y-%m-%d"))] = rec
+        return index
+
+    @staticmethod
+    def _iter_dates(from_d: date, to_d: date):
+        current = from_d
+        while current <= to_d:
+            yield current
+            current += timedelta(days=1)
+
+    @staticmethod
+    def _business_days_between(from_d: date, to_d: date) -> int:
+        count = 0
+        for day in QuanLyNhanVienWidget._iter_dates(from_d, to_d):
+            if day.weekday() < 5:
+                count += 1
+        return count
+
+    @staticmethod
+    def _is_full_calendar_month(from_d: date, to_d: date) -> bool:
+        if from_d.day != 1:
+            return False
+        if from_d.month == 12:
+            next_month = date(from_d.year + 1, 1, 1)
+        else:
+            next_month = date(from_d.year, from_d.month + 1, 1)
+        return to_d == next_month - timedelta(days=1)
+
+    def _compose_attendance_day(self, emp, work_day: date, rec, shift_value: str):
+        iso = work_day.strftime("%Y-%m-%d")
+        planned_shift = str(shift_value or "-").strip() or "-"
+        if rec:
+            return {
+                "date": work_day.strftime("%d/%m/%Y"),
+                "shift": str(rec.get("shift") or planned_shift).strip() or planned_shift,
+                "checkin": str(rec.get("checkin") or "-"),
+                "checkout": str(rec.get("checkout") or "-"),
+                "hours": float(rec.get("hours") or 0),
+                "status": str(rec.get("status") or "Chưa chấm công"),
+                "note": str(rec.get("note") or ""),
+            }
+        if emp.get("status") != "Đang làm" or self._is_off_shift(planned_shift):
+            return {
+                "date": work_day.strftime("%d/%m/%Y"),
+                "shift": "Off" if self._is_off_shift(planned_shift) else planned_shift,
+                "checkin": "-",
+                "checkout": "-",
+                "hours": 0.0,
+                "status": "Nghỉ làm",
+                "note": "",
+            }
+        return {
+            "date": work_day.strftime("%d/%m/%Y"),
+            "shift": planned_shift,
+            "checkin": "-",
+            "checkout": "-",
+            "hours": 0.0,
+            "status": "Chưa chấm công",
+            "note": "",
+        }
+
+    def _attendance_rows_for_employee(self, emp, from_d: date, to_d: date):
+        index = self._attendance_records_index()
+        rows = []
+        for work_day in self._iter_dates(from_d, to_d):
+            iso = work_day.strftime("%Y-%m-%d")
+            rec = index.get((int(emp["id"]), iso))
+            shift_value = emp.get("shifts", {}).get(iso, "-")
+            rows.append(self._compose_attendance_day(emp, work_day, rec, shift_value))
+        return rows
+
+    def _monthly_salary_for_employee(self, emp, from_d: date, to_d: date) -> int:
+        if emp.get("status") != "Đang làm":
+            return 0
+        base = int(ROLE_BASE_MONTHLY_SALARY.get(emp.get("role", ""), 0))
+        if base <= 0:
+            return 0
+        work_days = sum(1 for row in self._attendance_rows_for_employee(emp, from_d, to_d) if float(row.get("hours") or 0) > 0)
+        standard_days = self._business_days_between(from_d, to_d)
+        if standard_days <= 0:
+            return 0
+        return int(base * work_days / standard_days)
+
+    def _commission_breakdown(self, emp, period_start: date, period_end: date, mode: str):
+        jobs, revenue = get_technician_commission_base(emp["name"], period_start, period_end)
+        if mode == "Theo khối lượng công việc":
+            rate = 6.0
+        elif mode == "Theo dịch vụ thực hiện":
+            rate = 7.5
+        else:
+            rate = 8.0
+        provisional = revenue * rate / 100
+        adjustment = 50000 if jobs >= 20 else 0
+        total = provisional + adjustment
+        return {
+            "jobs": jobs,
+            "revenue": revenue,
+            "rate": rate,
+            "provisional": provisional,
+            "adjustment": adjustment,
+            "total": total,
+        }
+
     def render_attendance_table(self):
+        self._hydrate_shifts_from_db()
         table = self.ui.tbl_attendance
         table.setRowCount(0)
         from_d = self.ui.date_att_from.date().toPyDate()
         to_d = self.ui.date_att_to.date().toPyDate()
-        for rec in self.attendance_records:
-            d = datetime.strptime(rec["date"], "%d/%m/%Y").date()
-            if d < from_d or d > to_d:
-                continue
-            emp = self._employee_by_id(rec["employee_id"])
-            if not emp:
-                continue
-            row = table.rowCount()
-            table.insertRow(row)
-            table.setItem(row, 0, QTableWidgetItem(f"NV{emp['id']:03d}"))
-            table.setItem(row, 1, QTableWidgetItem(emp["name"]))
-            table.setItem(row, 2, QTableWidgetItem(rec["date"]))
-            table.setItem(row, 3, QTableWidgetItem(rec["shift"]))
-            table.setItem(row, 4, QTableWidgetItem(rec["checkin"]))
-            table.setItem(row, 5, QTableWidgetItem(rec["checkout"]))
-            table.setItem(row, 6, QTableWidgetItem(f"{rec['hours']:.1f}"))
-            table.setItem(row, 7, QTableWidgetItem(rec["status"]))
-            table.setItem(row, 8, QTableWidgetItem(rec["note"]))
+        if from_d > to_d:
+            from_d, to_d = to_d, from_d
+
+        total_work_days = 0
+        total_off_days = 0
+        total_hours = 0.0
+        for emp in self.employees:
+            for day_row in self._attendance_rows_for_employee(emp, from_d, to_d):
+                row = table.rowCount()
+                table.insertRow(row)
+                table.setItem(row, 0, QTableWidgetItem(f"NV{emp['id']:03d}"))
+                table.setItem(row, 1, QTableWidgetItem(emp["name"]))
+                table.setItem(row, 2, QTableWidgetItem(day_row["date"]))
+                table.setItem(row, 3, QTableWidgetItem(day_row["shift"]))
+                table.setItem(row, 4, QTableWidgetItem(day_row["checkin"]))
+                table.setItem(row, 5, QTableWidgetItem(day_row["checkout"]))
+                table.setItem(row, 6, QTableWidgetItem(f"{day_row['hours']:.1f}"))
+                table.setItem(row, 7, QTableWidgetItem(day_row["status"]))
+                table.setItem(row, 8, QTableWidgetItem(day_row["note"]))
+
+                if float(day_row.get("hours") or 0) > 0:
+                    total_work_days += 1
+                    total_hours += float(day_row.get("hours") or 0)
+                elif day_row.get("status") == "Nghỉ làm":
+                    total_off_days += 1
+
+        summary = (
+            f"Tóm tắt {from_d.strftime('%d/%m/%Y')}–{to_d.strftime('%d/%m/%Y')}: "
+            f"{total_work_days} ngày có giờ công, {total_off_days} ngày nghỉ làm, "
+            f"{total_hours:.1f} giờ công."
+        )
+        if self._is_full_calendar_month(from_d, to_d):
+            summary += " Lương tháng + hoa hồng: xem tab Hoa hồng (kỳ Theo tháng)."
+        self.lbl_attendance_summary.setText(summary)
 
     def _notify_export_attendance(self):
         table = self.ui.tbl_attendance
@@ -715,38 +871,138 @@ class QuanLyNhanVienWidget(QWidget):
         end = start + timedelta(days=6)
         return start, end
 
+    @staticmethod
+    def _current_month_bounds():
+        today = date.today()
+        start = today.replace(day=1)
+        if start.month == 12:
+            next_month = date(start.year + 1, 1, 1)
+        else:
+            next_month = date(start.year, start.month + 1, 1)
+        end = next_month - timedelta(days=1)
+        return start, end
+
+    def _commission_salary_month_key(self):
+        return self._current_month_bounds()[0].strftime("%Y-%m")
+
     def render_commission_table(self):
+        self._hydrate_shifts_from_db()
         table = self.ui.tbl_commission
+        table.setColumnCount(10)
+        headers = [
+            "Mã NV",
+            "Nhân viên kỹ thuật",
+            "Số job / dịch vụ",
+            "Doanh thu tạo ra",
+            "Tỷ lệ hoa hồng (%)",
+            "Hoa hồng tạm tính",
+            "Điều chỉnh",
+            "Tổng hoa hồng",
+            "Lương tháng (tạm tính)",
+            "Tổng thu nhập",
+        ]
+        table.setHorizontalHeaderLabels(headers)
+        self._is_rendering_commission = True
         table.setRowCount(0)
         mode = self.ui.cmb_commission_type.currentText()
         d0, d1 = self._commission_period_bounds()
+        salary_from, salary_to = self._current_month_bounds()
+        try:
+            stored_salaries = load_hr_monthly_salary_map(salary_from)
+        except Exception:
+            stored_salaries = {}
 
         for emp in self.employees:
             if emp["role"] != "Kỹ thuật" or emp["status"] != "Đang làm":
                 continue
-            jobs, revenue = get_technician_commission_base(emp["name"], d0, d1)
-            if mode == "Theo khối lượng công việc":
-                rate = 6.0
-            elif mode == "Theo dịch vụ thực hiện":
-                rate = 7.5
+            breakdown = self._commission_breakdown(emp, d0, d1, mode)
+            emp_id = int(emp["id"])
+            if emp_id in stored_salaries:
+                monthly_salary = int(stored_salaries[emp_id])
             else:
-                rate = 8.0
-            provisional = revenue * rate / 100
-            adjustment = 50000 if jobs >= 20 else 0
-            total = provisional + adjustment
+                monthly_salary = self._monthly_salary_for_employee(emp, salary_from, salary_to)
+            income_total = breakdown["total"] + monthly_salary
 
             row = table.rowCount()
             table.insertRow(row)
-            table.setItem(row, 0, QTableWidgetItem(f"NV{emp['id']:03d}"))
-            table.setItem(row, 1, QTableWidgetItem(emp["name"]))
-            table.setItem(row, 2, QTableWidgetItem(str(jobs)))
-            table.setItem(row, 3, QTableWidgetItem(self._money(revenue)))
-            table.setItem(row, 4, QTableWidgetItem(f"{rate:.1f}"))
-            table.setItem(row, 5, QTableWidgetItem(self._money(provisional)))
-            table.setItem(row, 6, QTableWidgetItem(self._money(adjustment)))
-            table.setItem(row, 7, QTableWidgetItem(self._money(total)))
+            table.setItem(row, 0, self._readonly_table_item(f"NV{emp['id']:03d}"))
+            table.setItem(row, 1, self._readonly_table_item(emp["name"]))
+            table.setItem(row, 2, self._readonly_table_item(str(breakdown["jobs"])))
+            table.setItem(row, 3, self._readonly_table_item(self._money(breakdown["revenue"])))
+            table.setItem(row, 4, self._readonly_table_item(f"{breakdown['rate']:.1f}"))
+            table.setItem(row, 5, self._readonly_table_item(self._money(breakdown["provisional"])))
+            table.setItem(row, 6, self._readonly_table_item(self._money(breakdown["adjustment"])))
+            table.setItem(row, 7, self._readonly_table_item(self._money(breakdown["total"])))
+            salary_item = QTableWidgetItem(self._money(monthly_salary))
+            salary_item.setFlags(salary_item.flags() | Qt.ItemIsEditable)
+            table.setItem(row, 8, salary_item)
+            table.setItem(row, 9, self._readonly_table_item(self._money(income_total)))
+        self._is_rendering_commission = False
+
+    def _on_commission_item_changed(self, item):
+        if self._is_rendering_commission or not item or item.column() != 8:
+            return
+        table = self.ui.tbl_commission
+        code_item = table.item(item.row(), 0)
+        commission_item = table.item(item.row(), 7)
+        total_item = table.item(item.row(), 9)
+        if not code_item or not commission_item or not total_item:
+            return
+        code_text = str(code_item.text() or "").strip().upper()
+        if not code_text.startswith("NV") or not code_text[2:].isdigit():
+            return
+        employee_id = int(code_text[2:])
+        monthly_salary = self._parse_money(item.text())
+        commission_total = self._parse_money(commission_item.text())
+        salary_from, _salary_to = self._current_month_bounds()
+        try:
+            upsert_hr_monthly_salary(employee_id, salary_from, monthly_salary)
+            append_audit_log(
+                "hr.monthly_salary.update",
+                "quan_ly_nhan_su",
+                {
+                    "employee_id": employee_id,
+                    "period_month": salary_from.strftime("%Y-%m"),
+                    "provisional_salary": monthly_salary,
+                },
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "Lương tháng", f"Không thể lưu lương tháng vào MySQL.\nChi tiết: {exc}")
+            return
+        self._is_rendering_commission = True
+        item.setText(self._money(monthly_salary))
+        total_item.setText(self._money(commission_total + monthly_salary))
+        self._is_rendering_commission = False
+
+    def _persist_commission_salaries_to_db(self):
+        table = self.ui.tbl_commission
+        salary_from, _salary_to = self._current_month_bounds()
+        saved = 0
+        for row in range(table.rowCount()):
+            code_item = table.item(row, 0)
+            salary_item = table.item(row, 8)
+            if not code_item or not salary_item:
+                continue
+            code_text = str(code_item.text() or "").strip().upper()
+            if not code_text.startswith("NV") or not code_text[2:].isdigit():
+                continue
+            employee_id = int(code_text[2:])
+            monthly_salary = self._parse_money(salary_item.text())
+            upsert_hr_monthly_salary(employee_id, salary_from, monthly_salary)
+            saved += 1
+        return saved
 
     def _notify_commission_confirmed(self):
+        try:
+            saved = self._persist_commission_salaries_to_db()
+            append_audit_log(
+                "hr.monthly_salary.confirm",
+                "quan_ly_nhan_su",
+                {"period_month": self._commission_salary_month_key(), "rows": saved},
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "Hoa hồng", f"Không thể chốt lương tháng vào MySQL.\nChi tiết: {exc}")
+            return
         QMessageBox.information(self, "Hoa hồng", "Đã chốt kỳ hoa hồng thành công.")
 
     def _notify_export_commission(self):
@@ -1029,9 +1285,26 @@ class QuanLyNhanVienWidget(QWidget):
     def _money(value):
         return f"{int(value):,} đ".replace(",", ".")
 
+    @staticmethod
+    def _parse_money(text):
+        digits = re.sub(r"[^\d]", "", str(text or ""))
+        return int(digits or 0)
+
+    @staticmethod
+    def _readonly_table_item(text):
+        item = QTableWidgetItem(str(text))
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        return item
+
     def _add_dynamic_commission_refresh_button(self):
         self.ui.btn_refresh_commission = QPushButton("Làm mới")
         self.ui.horizontalLayout_commission_actions.insertWidget(0, self.ui.btn_refresh_commission)
+
+    def _setup_attendance_summary_label(self):
+        self.lbl_attendance_summary = QLabel("")
+        self.lbl_attendance_summary.setWordWrap(True)
+        self.lbl_attendance_summary.setObjectName("label_attendance_summary")
+        self.ui.verticalLayout_tab2.insertWidget(1, self.lbl_attendance_summary)
 
 
 if __name__ == "__main__":

@@ -32,11 +32,12 @@ from database.models import load_system_settings, load_unified_catalog_items
 
 
 class InvoiceDialog(QDialog):
-    def __init__(self, invoice_data, parent=None):
+    def __init__(self, invoice_data, parent=None, read_only=False):
         super().__init__(parent)
         self.ui = Ui_BillPOSDialog()
         self.ui.setupUi(self)
         self.invoice_data = invoice_data
+        self.read_only = bool(read_only)
         self.payment_method = ""
         self._bind_data()
         self._apply_style()
@@ -93,12 +94,16 @@ class InvoiceDialog(QDialog):
         self.ui.lbl_vat_value.setText(POSWidget.format_money(self.invoice_data["vat_amount"]))
         self.ui.lbl_grand_value.setText(POSWidget.format_money(self.invoice_data["grand_total"]))
 
-        self.ui.btn_mark_paid.setText("Đã thanh toán qua ngân hàng")
-        self.ui.btn_mark_paid.clicked.connect(self._mark_paid_bank)
+        if self.read_only:
+            self.ui.btn_mark_paid.setText("Đóng")
+            self.ui.btn_mark_paid.clicked.connect(self.reject)
+        else:
+            self.ui.btn_mark_paid.setText("Đã thanh toán qua ngân hàng")
+            self.ui.btn_mark_paid.clicked.connect(self._mark_paid_bank)
 
-        self.btn_mark_paid_cash = QPushButton("Đã thanh toán tiền mặt")
-        self.btn_mark_paid_cash.clicked.connect(self._mark_paid_cash)
-        self.ui.btnLayout.addWidget(self.btn_mark_paid_cash)
+            self.btn_mark_paid_cash = QPushButton("Đã thanh toán tiền mặt")
+            self.btn_mark_paid_cash.clicked.connect(self._mark_paid_cash)
+            self.ui.btnLayout.addWidget(self.btn_mark_paid_cash)
 
     def _mark_paid_bank(self):
         self.payment_method = "Chuyển khoản ngân hàng"
@@ -173,7 +178,7 @@ class InvoiceDialog(QDialog):
             }
             QLabel#billTitle {
                 color: #f8fafc;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 800;
             }
             QLabel#billSub {
@@ -187,7 +192,7 @@ class InvoiceDialog(QDialog):
             }
             QLabel#billTotal {
                 color: #22d3ee;
-                font-size: 15px;
+                font-size: 13px;
                 font-weight: 800;
             }
             QTableWidget {
@@ -959,7 +964,7 @@ class POSWidget(QWidget):
             }
             QLabel#posTitle {
                 color: #f8fafc;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 800;
             }
             QLabel#posSubTitle {

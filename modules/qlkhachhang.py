@@ -473,6 +473,14 @@ class CustomerManagerWidget(QWidget):
         return parts
 
     @staticmethod
+    def _merge_vehicle_field(existing: str, new_value: str) -> str:
+        values = CustomerManagerWidget._split_multi_values(existing)
+        value = str(new_value or "").strip()
+        if value and value not in values:
+            values.append(value)
+        return ", ".join(values)
+
+    @staticmethod
     def _first_plate_for_customers_table(raw_plate: str):
         plates = CustomerManagerWidget._split_multi_values(raw_plate)
         if plates:
@@ -874,10 +882,10 @@ class CustomerManagerWidget(QWidget):
 
         car_model = str((order_for_vehicle or {}).get("car_model", "")).strip()
         plate = str((order_for_vehicle or {}).get("plate", "")).strip()
-        if car_model and not str(customer.get("hang_xe", "")).strip():
-            customer["hang_xe"] = car_model
-        if plate and not str(customer.get("bien_so", "")).strip():
-            customer["bien_so"] = plate
+        if car_model:
+            customer["hang_xe"] = self._merge_vehicle_field(customer.get("hang_xe", ""), car_model)
+        if plate:
+            customer["bien_so"] = self._merge_vehicle_field(customer.get("bien_so", ""), plate)
 
         service_text = ", ".join(str(it.get("name", "")) for it in (line_items or []) if it.get("name"))
         self.service_history_map.setdefault(customer["id"], []).append(

@@ -14,7 +14,9 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from modules.invoices_store import list_invoices, update_invoice_status, delete_invoice
+from database.models import load_system_settings
+from modules.invoices_store import get_invoice, list_invoices, update_invoice_status, delete_invoice
+from modules.pos import InvoiceDialog
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
 
@@ -77,6 +79,7 @@ class HoaDonManagerWidget(QWidget):
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        self.tbl.cellDoubleClicked.connect(self._show_invoice_detail)
         root.addWidget(self.tbl)
 
     def _apply_style(self):
@@ -120,8 +123,10 @@ class HoaDonManagerWidget(QWidget):
             self.tbl.setItem(row, 3, QTableWidgetItem(str(inv.get("customer_phone", "-"))))
             self.tbl.setItem(row, 4, QTableWidgetItem(str(inv.get("payment_method", "-"))))
             self.tbl.setItem(row, 5, QTableWidgetItem(str(inv.get("status", "paid"))))
-            self.tbl.setItem(row, 6, QTableWidgetItem(self._money(inv.get("grand_total", 0))))
-            self.tbl.setItem(row, 7, QTableWidgetItem(str(len(inv.get("items", [])))))
+            total = inv.get("total_amount", inv.get("grand_total", 0))
+            self.tbl.setItem(row, 6, QTableWidgetItem(self._money(total)))
+            item_count = inv.get("item_count", len(inv.get("items", [])))
+            self.tbl.setItem(row, 7, QTableWidgetItem(str(item_count)))
 
     def export_csv(self):
         if not can_do(self.current_role, "invoices.export"):
@@ -155,6 +160,26 @@ class HoaDonManagerWidget(QWidget):
             return ""
         item = self.tbl.item(row, 0)
         return item.text().strip() if item else ""
+
+    def _show_invoice_detail(self, row, _column):
+        if row < 0:
+            return
+        code_item = self.tbl.item(row, 0)
+        invoice_no = code_item.text().strip() if code_item else ""
+        if not invoice_no:
+            return
+        invoice = get_invoice(invoice_no)
+        if not invoice:
+            QMessageBox.warning(self, "Hóa đơn", f"Không tìm thấy chi tiết hóa đơn {invoice_no}.")
+            return
+        settings = load_system_settings() or {}
+        invoice.setdefault("bank_name", settings.get("bank_name", "MB Bank"))
+        invoice.setdefault("bank_account_number", settings.get("bank_account_number", "123456789"))
+        invoice.setdefault("bank_account_name", settings.get("bank_account_name", "CONG TY PROCARE"))
+        invoice.setdefault("qr_image_path", settings.get("qr_image_path", ""))
+        dlg = InvoiceDialog(invoice, self, read_only=True)
+        dlg.setWindowTitle(f"Hóa đơn chi tiết - {invoice_no}")
+        dlg.exec_()
 
     def _change_status_selected(self, to_status):
         invoice_no = self._selected_invoice_no()

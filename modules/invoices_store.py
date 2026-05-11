@@ -11,15 +11,21 @@ def list_invoices():
     rows = fetch_all(
         """
         SELECT
-            invoice_no, created_at, customer_name, customer_phone,
-            subtotal, discount_type, discount_value, vat_percent, vat_amount,
-            total_amount, payment_method, status, linked_order_no
-        FROM invoices
-        ORDER BY id DESC
+            i.invoice_no, i.created_at, i.customer_name, i.customer_phone,
+            i.subtotal, i.discount_type, i.discount_value, i.vat_percent, i.vat_amount,
+            i.total_amount, i.payment_method, i.status, i.linked_order_no,
+            (
+                SELECT COUNT(*)
+                FROM invoice_items ii
+                WHERE ii.invoice_no = i.invoice_no
+            ) AS item_count
+        FROM invoices i
+        ORDER BY i.id DESC
         """
     )
     result = []
     for row in rows:
+        total_amount = float(row.get("total_amount") or 0)
         result.append(
             {
                 "invoice_no": row.get("invoice_no", ""),
@@ -31,13 +37,75 @@ def list_invoices():
                 "discount_value": float(row.get("discount_value") or 0),
                 "vat_percent": float(row.get("vat_percent") or 0),
                 "vat_amount": float(row.get("vat_amount") or 0),
-                "total_amount": float(row.get("total_amount") or 0),
+                "total_amount": total_amount,
+                "grand_total": total_amount,
                 "payment_method": row.get("payment_method", ""),
                 "status": row.get("status", ""),
                 "linked_order_no": row.get("linked_order_no", ""),
+                "item_count": int(row.get("item_count") or 0),
             }
         )
     return result
+
+
+def get_invoice(invoice_no):
+    ensure_mysql_ready()
+    invoice_no = str(invoice_no or "").strip()
+    if not invoice_no:
+        return None
+    row = fetch_one(
+        """
+        SELECT
+            invoice_no, created_at, customer_name, customer_phone,
+            subtotal, discount_type, discount_value, vat_percent, vat_amount,
+            total_amount, payment_method, status, linked_order_no
+        FROM invoices
+        WHERE invoice_no=%s
+        """,
+        (invoice_no,),
+    )
+    if not row:
+        return None
+    item_rows = fetch_all(
+        """
+        SELECT item_name, item_type, qty, unit_price, line_total
+        FROM invoice_items
+        WHERE invoice_no=%s
+        ORDER BY id ASC
+        """,
+        (invoice_no,),
+    )
+    lines = []
+    for item in item_rows or []:
+        lines.append(
+            {
+                "name": str(item.get("item_name") or ""),
+                "item_type": str(item.get("item_type") or "service"),
+                "qty": int(item.get("qty") or 1),
+                "unit_price": float(item.get("unit_price") or 0),
+                "line_total": float(item.get("line_total") or 0),
+            }
+        )
+    total_amount = float(row.get("total_amount") or 0)
+    return {
+        "invoice_no": row.get("invoice_no", ""),
+        "created_at": row["created_at"].strftime("%d/%m/%Y %H:%M") if row.get("created_at") else "",
+        "customer_name": row.get("customer_name", ""),
+        "customer_phone": row.get("customer_phone", ""),
+        "subtotal": float(row.get("subtotal") or 0),
+        "discount_type": row.get("discount_type", "none"),
+        "discount_amount": float(row.get("discount_value") or 0),
+        "vat_percent": float(row.get("vat_percent") or 0),
+        "vat_amount": float(row.get("vat_amount") or 0),
+        "total_amount": total_amount,
+        "grand_total": total_amount,
+        "payment_method": row.get("payment_method", ""),
+        "status": row.get("status", ""),
+        "linked_order_no": row.get("linked_order_no", ""),
+        "lines": lines,
+        "items": lines,
+        "payment_payload": invoice_no,
+    }
 
 
 def append_invoice(invoice):

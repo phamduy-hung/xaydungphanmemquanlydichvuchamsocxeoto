@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from database.connection import execute, execute_many, fetch_all, fetch_one, ensure_mysql_ready
 
@@ -452,6 +453,86 @@ def update_hr_employee_status(emp_id, status):
     execute(
         "UPDATE hr_employees SET status=%s WHERE id=%s",
         (str(status or "").strip(), int(emp_id)),
+    )
+
+
+def _normalize_period_month(period_month):
+    if period_month is None:
+        return None
+    if hasattr(period_month, "replace") and hasattr(period_month, "year"):
+        return period_month.replace(day=1)
+    text = str(period_month or "").strip()
+    if not text:
+        return None
+    if len(text) == 7:
+        text = f"{text}-01"
+    if len(text) >= 10:
+        text = text[:10]
+    try:
+        year_s, month_s, _day_s = text.split("-", 2)
+        return date(int(year_s), int(month_s), 1)
+    except Exception:
+        return None
+
+
+def ensure_hr_monthly_salary():
+    ensure_hr_employees()
+    execute(
+        """
+        CREATE TABLE IF NOT EXISTS hr_monthly_salary (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          employee_id BIGINT NOT NULL,
+          period_month DATE NOT NULL,
+          provisional_salary DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uk_hr_salary_emp_month (employee_id, period_month),
+          INDEX idx_hr_salary_period (period_month),
+          CONSTRAINT fk_hr_salary_employee FOREIGN KEY (employee_id) REFERENCES hr_employees (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB
+        """
+    )
+
+
+def load_hr_monthly_salary_map(period_month):
+    """Trả về dict[employee_id] = lương tháng tạm tính đã lưu cho kỳ tháng."""
+    ensure_hr_monthly_salary()
+    month = _normalize_period_month(period_month)
+    if not month:
+        return {}
+    rows = fetch_all(
+        """
+        SELECT employee_id, provisional_salary
+        FROM hr_monthly_salary
+        WHERE period_month=%s
+        """,
+        (month,),
+    )
+    out = {}
+    for row in rows or []:
+        emp_id = int(row.get("employee_id") or 0)
+        if emp_id <= 0:
+            continue
+        out[emp_id] = int(float(row.get("provisional_salary") or 0))
+    return out
+
+
+def upsert_hr_monthly_salary(employee_id, period_month, provisional_salary):
+    ensure_hr_monthly_salary()
+    month = _normalize_period_month(period_month)
+    if not month:
+        raise ValueError("Kỳ lương tháng không hợp lệ")
+    emp_id = int(employee_id)
+    if emp_id <= 0:
+        raise ValueError("Nhân viên không hợp lệ")
+    execute(
+        """
+        INSERT INTO hr_monthly_salary (employee_id, period_month, provisional_salary)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+          provisional_salary = VALUES(provisional_salary),
+          updated_at = CURRENT_TIMESTAMP
+        """,
+        (emp_id, month, float(provisional_salary or 0)),
     )
 
 

@@ -464,6 +464,9 @@ class TiepNhanXeWidget(QWidget):
         except ValueError as e:
             QMessageBox.warning(self, "Đủ số xe trong ngày", str(e))
             return
+        except Exception as e:
+            QMessageBox.warning(self, "Không thể tạo lệnh", f"Không thể tạo lệnh dịch vụ.\nChi tiết: {e}")
+            return
         append_audit_log(
             "service_order.create",
             self.current_user,

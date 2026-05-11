@@ -31,6 +31,7 @@ DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS rbac_section_permissions;
 DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS hr_shift_cells;
+DROP TABLE IF EXISTS hr_monthly_salary;
 DROP TABLE IF EXISTS hr_employees;
 DROP TABLE IF EXISTS system_settings;
 DROP TABLE IF EXISTS users;
@@ -95,6 +96,17 @@ CREATE TABLE hr_employees (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_hr_phone (phone),
   INDEX idx_hr_role_status (role, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE hr_monthly_salary (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  employee_id BIGINT NOT NULL,
+  period_month DATE NOT NULL,
+  provisional_salary DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_hr_salary_emp_month (employee_id, period_month),
+  INDEX idx_hr_salary_period (period_month),
+  CONSTRAINT fk_hr_salary_employee FOREIGN KEY (employee_id) REFERENCES hr_employees (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE hr_shift_cells (

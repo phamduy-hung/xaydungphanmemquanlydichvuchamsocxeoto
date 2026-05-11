@@ -311,7 +311,7 @@ class WebBookingsWidget(QWidget):
                 border: 1px solid #334155;
                 border-radius: 10px;
                 padding: 0 12px;
-                font-size: 13px;
+                font-size: 11px;
                 selection-background-color: #0ea5e9;
             }
             QLineEdit#webSearchInput:focus {
@@ -328,7 +328,7 @@ class WebBookingsWidget(QWidget):
             }
             QLabel#webPendingInfo {
                 color: #cbd5e1;
-                font-size: 13px;
+                font-size: 11px;
             }
             QFrame {
                 background-color: #111827;
@@ -378,7 +378,7 @@ class WebBookingsWidget(QWidget):
                 border: 1px solid #334155;
                 border-radius: 10px;
                 font-weight: 700;
-                font-size: 13px;
+                font-size: 11px;
                 padding: 9px 14px;
             }
             QPushButton:hover {

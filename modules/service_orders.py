@@ -215,10 +215,6 @@ def _sync_customer_from_order(data):
     if not phone:
         return
     customer_name = str(data.get("customer_name", "")).strip() or "Khách lẻ"
-    plate = str(data.get("plate", "")).strip()
-    car_model = str(data.get("car_model", "")).strip()
-    # customers.vehicle_plate is short; store representative plate here.
-    representative_plate = plate[:20]
 
     row = fetch_one("SELECT id FROM customers WHERE phone=%s", (phone,))
     if row:
@@ -226,38 +222,22 @@ def _sync_customer_from_order(data):
         execute(
             """
             UPDATE customers
-            SET full_name=%s, vehicle_plate=%s
+            SET full_name=%s
             WHERE id=%s
             """,
-            (customer_name, representative_plate, customer_id),
+            (customer_name, customer_id),
         )
-    else:
-        # Seed new CRM customer from direct intake.
-        # customers.customer_code is short (e.g. VARCHAR(20)), keep deterministic compact code.
-        customer_code = f"KH{datetime.now().strftime('%y%m%d%H%M%S')}"
-        execute(
-            """
-            INSERT INTO customers(customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
-            VALUES (%s, %s, %s, %s, 0, 'Đồng', 1, 0)
-            """,
-            (customer_code, customer_name, phone, representative_plate),
-        )
-        created = fetch_one("SELECT id FROM customers WHERE phone=%s", (phone,))
-        customer_id = int(created["id"]) if created else 0
-
-    if customer_id <= 0:
         return
 
-    _ensure_crm_vehicle_table()
-    if car_model or plate:
-        execute(
-            """
-            INSERT INTO crm_customer_vehicles(customer_id, car_model, plate_no)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE car_model=VALUES(car_model), plate_no=VALUES(plate_no)
-            """,
-            (customer_id, car_model, plate),
-        )
+    # Seed new CRM customer from direct intake (vehicle is added after payment).
+    customer_code = f"KH{datetime.now().strftime('%y%m%d%H%M%S')}"
+    execute(
+        """
+        INSERT INTO customers(customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
+        VALUES (%s, %s, %s, %s, 0, 'Đồng', 1, 0)
+        """,
+        (customer_code, customer_name, phone, ""),
+    )
 
 
 def list_orders():
@@ -352,8 +332,16 @@ def get_order(order_id):
 
 
 def _next_order_id():
-    now = datetime.now().strftime("%Y%m%d%H%M%S")
-    return f"SO{now}"
+    ensure_mysql_ready()
+    base = datetime.now().strftime("%Y%m%d%H%M%S")
+    candidate = f"SO{base}"
+    suffix = 0
+    while fetch_one("SELECT id FROM service_orders WHERE order_no=%s LIMIT 1", (candidate,)):
+        suffix += 1
+        candidate = f"SO{base}{suffix:02d}"[:30]
+        if suffix > 99:
+            candidate = f"SO{datetime.now().strftime('%Y%m%d%H%M%S%f')}"[:30]
+    return candidate
 
 
 def _normalize_text(text):
