@@ -74,6 +74,7 @@ class TiepNhanXeWidget(QWidget):
         self.txt_customer.setPlaceholderText("Khách hàng")
         self.txt_phone = QLineEdit()
         self.txt_phone.setPlaceholderText("SĐT")
+        self.txt_phone.textChanged.connect(self._on_phone_text_changed)
         self.txt_plate = QLineEdit()
         self.txt_plate.setPlaceholderText("Biển số")
         self.txt_car_model = QLineEdit()
@@ -252,14 +253,54 @@ class TiepNhanXeWidget(QWidget):
         raw = str(text or "").strip()
         if not raw:
             return []
-        parts = re.split(r"[+,;/|]", raw)
-        result = []
-        for part in parts:
-            token = str(part or "").strip()
-            if not token:
+        
+        text_norm = self._normalize_text(raw)
+        if not text_norm:
+            return []
+            
+        # Lấy danh sách dịch vụ đang hoạt động
+        active_services = list(self._service_price_map.keys())
+        if not active_services:
+            try:
+                rows = load_service_catalog(active_only=True)
+                active_services = [str(x.get("service_name", "")).strip() for x in rows if str(x.get("service_name", "")).strip()]
+            except Exception:
+                active_services = []
+                
+        # Sắp xếp dịch vụ theo độ dài đã chuẩn hóa giảm dần để ưu tiên khớp dịch vụ dài trước (như "rửa xe + hút bụi" trước "rửa xe")
+        sorted_services = sorted(
+            [s for s in active_services if s.strip()],
+            key=lambda x: len(self._normalize_text(x)),
+            reverse=True
+        )
+        
+        # Thử khớp hoàn toàn trước
+        for svc in sorted_services:
+            if self._normalize_text(svc) == text_norm:
+                return [svc]
+                
+        # Thử tìm kiếm dịch vụ con trong chuỗi
+        results = []
+        remaining = text_norm
+        for svc in sorted_services:
+            svc_norm = self._normalize_text(svc)
+            if not svc_norm:
                 continue
-            result.append(self._match_service_name(token))
-        return [x for x in result if x]
+            if svc_norm in remaining:
+                results.append(svc)
+                remaining = remaining.replace(svc_norm, " ")
+                
+        if results:
+            return results
+            
+        # Fallback tự động tách theo ký tự phân tách nếu không khớp mẫu danh mục nào
+        parts = re.split(r"[+,;/|]", raw)
+        res = []
+        for p in parts:
+            token = str(p or "").strip()
+            if token:
+                res.append(self._match_service_name(token))
+        return [x for x in res if x]
 
     def _expand_services(self, services):
         expanded = []
@@ -397,6 +438,33 @@ class TiepNhanXeWidget(QWidget):
         # Debounce typing to keep UI smooth on lower-end machines.
         self._search_timer.start()
 
+    def _on_phone_text_changed(self):
+        phone = self.txt_phone.text().strip()
+        if len(phone) >= 9:
+            try:
+                from database.connection import fetch_one
+                row = fetch_one(
+                    """
+                    SELECT c.full_name, c.vehicle_plate, v.car_model
+                    FROM customers c
+                    LEFT JOIN crm_customer_vehicles v ON v.customer_id = c.id
+                    WHERE c.phone = %s
+                    ORDER BY v.id DESC
+                    LIMIT 1
+                    """,
+                    (phone,)
+                )
+                if row:
+                    current_cust = self.txt_customer.text().strip()
+                    if not current_cust or current_cust == "Khách lẻ":
+                        self.txt_customer.setText(str(row.get("full_name") or ""))
+                    if not self.txt_plate.text().strip():
+                        self.txt_plate.setText(str(row.get("vehicle_plate") or ""))
+                    if not self.txt_car_model.text().strip() and row.get("car_model"):
+                        self.txt_car_model.setText(str(row.get("car_model") or ""))
+            except Exception:
+                pass
+
     def _render_table(self, preferred_order_id=""):
         data = self._orders_cache
         keyword = (self.txt_search.text() if hasattr(self, "txt_search") else "").strip().lower()
@@ -437,6 +505,15 @@ class TiepNhanXeWidget(QWidget):
     def create_manual_order(self):
         customer = (self.txt_customer.text() or "").strip() or "Khách lẻ"
         phone = (self.txt_phone.text() or "").strip()
+        if (not customer or customer == "Khách lẻ") and phone:
+            try:
+                from database.connection import fetch_one
+                row = fetch_one("SELECT full_name FROM customers WHERE phone=%s LIMIT 1", (phone,))
+                if row and row.get("full_name"):
+                    customer = str(row["full_name"])
+                    self.txt_customer.setText(customer)
+            except Exception:
+                pass
         plate = (self.txt_plate.text() or "").strip()
         car_model = (self.txt_car_model.text() or "").strip()
         service = (self.cmb_service.currentText() or "").strip()
@@ -474,9 +551,15 @@ class TiepNhanXeWidget(QWidget):
         )
         self.btn_add.setChecked(True)
         self.btn_add.setText("Đã tạo lệnh")
+        QTimer.singleShot(2000, lambda: (self.btn_add.setChecked(False), self.btn_add.setText("Tạo lệnh")))
         self.btn_auto_tech.setChecked(False)
         self.btn_auto_tech.setText("Tự phân công KTV")
+        self.txt_customer.setText("")
+        self.txt_phone.setText("")
+        self.txt_plate.setText("")
+        self.txt_car_model.setText("")
         self.cmb_service.setCurrentText("")
+        self.cmb_technician.setCurrentText("")
         self._service_input_cache = ""
         self.refresh_data()
 

@@ -219,14 +219,15 @@ def _sync_customer_from_order(data):
     row = fetch_one("SELECT id FROM customers WHERE phone=%s", (phone,))
     if row:
         customer_id = int(row["id"])
-        execute(
-            """
-            UPDATE customers
-            SET full_name=%s
-            WHERE id=%s
-            """,
-            (customer_name, customer_id),
-        )
+        if customer_name and customer_name != "Khách lẻ":
+            execute(
+                """
+                UPDATE customers
+                SET full_name=%s
+                WHERE id=%s
+                """,
+                (customer_name, customer_id),
+            )
         return
 
     # Seed new CRM customer from direct intake (vehicle is added after payment).
@@ -359,6 +360,40 @@ def _split_services_formula(text):
     raw = str(text or "").strip()
     if not raw:
         return []
+    
+    text_norm = _normalize_text(raw)
+    if not text_norm:
+        return []
+        
+    price_map = get_service_price_map(active_only=True) or {}
+    active_services = list(price_map.keys())
+    
+    sorted_services = sorted(
+        [s for s in active_services if s.strip()],
+        key=lambda x: len(_normalize_text(x)),
+        reverse=True
+    )
+    
+    # Thử khớp hoàn toàn trước
+    for svc in sorted_services:
+        if _normalize_text(svc) == text_norm:
+            return [svc]
+            
+    # Thử tìm kiếm dịch vụ con trong chuỗi
+    results = []
+    remaining = text_norm
+    for svc in sorted_services:
+        svc_norm = _normalize_text(svc)
+        if not svc_norm:
+            continue
+        if svc_norm in remaining:
+            results.append(svc)
+            remaining = remaining.replace(svc_norm, " ")
+            
+    if results:
+        return results
+        
+    # Fallback tự động tách theo ký tự phân tách
     parts = [x.strip() for x in re.split(r"[+,;/|]", raw) if str(x).strip()]
     return parts if parts else [raw]
 
@@ -518,6 +553,14 @@ def create_order(data):
     else:
         service_date = parse_appointment_date_to_date(sd)
 
+    customer_name = str(data.get("customer_name", "")).strip() or "Khách lẻ"
+    phone = str(data.get("customer_phone", "")).strip()
+    if (not customer_name or customer_name == "Khách lẻ") and phone:
+        row_c = fetch_one("SELECT full_name FROM customers WHERE phone=%s LIMIT 1", (phone,))
+        if row_c and row_c.get("full_name"):
+            customer_name = str(row_c["full_name"])
+            data["customer_name"] = customer_name
+
     execute(
         """
         INSERT INTO service_orders(
@@ -530,8 +573,8 @@ def create_order(data):
             created_at,
             service_date,
             data.get("status", "CHECKED_IN"),
-            data.get("customer_name", "Khách lẻ"),
-            data.get("customer_phone", ""),
+            customer_name,
+            phone,
             data.get("plate", ""),
             data.get("car_model", ""),
             data.get("source", "desk"),

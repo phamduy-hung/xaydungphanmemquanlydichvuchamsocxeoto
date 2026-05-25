@@ -230,6 +230,7 @@ class POSWidget(QWidget):
         "GIAM5": ("percent", 5),
         "GIAM10": ("percent", 10),
         "GIAM50K": ("fixed", 50000),
+        "VIP50K": ("fixed", 50000),
     }
 
     def __init__(self, current_role="Quản lý", current_user="system"):
@@ -243,6 +244,8 @@ class POSWidget(QWidget):
         self._applied_discount_code = ""
         self._applied_discount_value = ("none", 0)
         self.crm_widget = None
+        self.customer_tier = "Đồng"
+        self.customer_discount_percent = 0.0
 
         self.catalog_items = self._load_catalog_items()
         self.cart_items = {}
@@ -346,7 +349,7 @@ class POSWidget(QWidget):
         self.cmb_discount.setEditable(False)
         self.cmb_discount.clear()
         self.cmb_discount.addItems(
-            ["Chọn mã giảm giá...", "GIAM5 (5%)", "GIAM10 (10%)", "GIAM50K (50.000đ)", "Tự nhập"]
+            ["Chọn mã giảm giá...", "GIAM5 (5%)", "GIAM10 (10%)", "GIAM50K (50.000đ)", "VIP50K (50.000đ)", "Tự nhập"]
         )
         self.cmb_discount.currentIndexChanged.connect(self._on_discount_combo_changed)
         self.btn_apply_discount.clicked.connect(self._apply_discount_code)
@@ -368,7 +371,31 @@ class POSWidget(QWidget):
         self.cart_items = {}
         self._last_intake_phone = None
         self._customer_name_was_entered = False
+        self.customer_tier = "Đồng"
+        self.customer_discount_percent = 0.0
         self._render_cart()
+
+    def _fetch_customer_loyalty_info(self):
+        phone = self._digits_only(self.txt_customer_phone.text())
+        if len(phone) < 8:
+            self.customer_tier = "Đồng"
+            self.customer_discount_percent = 0.0
+            return
+        try:
+            from database.connection import fetch_one
+            row = fetch_one(
+                "SELECT tier, discount_percent FROM customers WHERE phone = %s LIMIT 1",
+                (phone,)
+            )
+            if row:
+                self.customer_tier = str(row.get("tier") or "Đồng")
+                self.customer_discount_percent = float(row.get("discount_percent") or 0.0)
+            else:
+                self.customer_tier = "Đồng"
+                self.customer_discount_percent = 0.0
+        except Exception:
+            self.customer_tier = "Đồng"
+            self.customer_discount_percent = 0.0
 
     def _schedule_intake_prefill(self):
         self._prefill_timer.stop()
@@ -381,6 +408,9 @@ class POSWidget(QWidget):
             else:
                 self._customer_name_was_entered = False
             return
+
+        self._fetch_customer_loyalty_info()
+        self._recalculate_totals()
 
         if name:
             self._customer_name_was_entered = True
@@ -403,6 +433,7 @@ class POSWidget(QWidget):
             return
         if self.cart_items and self._last_intake_phone == phone_digits:
             return
+        self._fetch_customer_loyalty_info()
         try:
             order = find_latest_billable_order_for_pos(phone_digits, name)
         except Exception:
@@ -423,22 +454,8 @@ class POSWidget(QWidget):
                 new_cart[sname]["qty"] += 1
             else:
                 new_cart[sname] = {"price": price, "qty": 1, "type": itype}
-        for mat in order.get("material_requests") or []:
-            if not mat.get("exported"):
-                continue
-            mname = str(mat.get("item_name", "")).strip()
-            if not mname:
-                continue
-            qty = max(1, int(mat.get("qty") or 1))
-            cat = self._catalog_by_name.get(mname)
-            price = int(cat["price"]) if cat else 0
-            itype = self._item_type_for_catalog_name(mname, "Sản phẩm")
-            if mname in new_cart:
-                new_cart[mname]["qty"] += qty
-                if price > 0:
-                    new_cart[mname]["price"] = price
-            else:
-                new_cart[mname] = {"price": price, "qty": qty, "type": itype}
+        # Do not load material_requests (products used inside the service) into the POS cart,
+        # since the package price of the service already covers internal material consumption.
         if not new_cart:
             return
         self.cart_items = new_cart
@@ -603,6 +620,8 @@ class POSWidget(QWidget):
             self.txt_discount_code.setText("GIAM10")
         elif current.startswith("GIAM50K"):
             self.txt_discount_code.setText("GIAM50K")
+        elif current.startswith("VIP50K"):
+            self.txt_discount_code.setText("VIP50K")
         elif current == "Tự nhập":
             self.txt_discount_code.clear()
             self.txt_discount_code.setFocus()
@@ -628,12 +647,15 @@ class POSWidget(QWidget):
         return None
 
     def _totals_from_subtotal(self, subtotal: int):
-        discount_amount = 0
+        rank_discount = int(subtotal * (self.customer_discount_percent / 100.0))
+        voucher_discount = 0
         discount_type, discount_val = self._applied_discount_value
         if discount_type == "percent":
-            discount_amount = int(subtotal * (float(discount_val) / 100.0))
+            voucher_discount = int(subtotal * (float(discount_val) / 100.0))
         elif discount_type == "fixed":
-            discount_amount = int(discount_val)
+            voucher_discount = int(discount_val)
+        
+        discount_amount = rank_discount + voucher_discount
         discount_amount = min(discount_amount, subtotal)
 
         after_discount = max(0, subtotal - discount_amount)
@@ -654,6 +676,23 @@ class POSWidget(QWidget):
         self.lbl_discount.setText(f"Giảm giá: -{self.format_money(discount_amount)}")
         self.lbl_vat.setText(f"VAT ({self.vat_percent:.1f}%): {self.format_money(vat_amount)}")
         self.lbl_total_v.setText(f"{self.format_money(grand_total)}")
+        
+        note_parts = []
+        if self.customer_discount_percent > 0:
+            note_parts.append(f"Hạng {self.customer_tier}: -{self.customer_discount_percent:.1f}%")
+        
+        discount_type, discount_val = self._applied_discount_value
+        if discount_type != "none":
+            code = self._applied_discount_code
+            if discount_type == "percent":
+                note_parts.append(f"Voucher {code}: -{discount_val}%")
+            else:
+                note_parts.append(f"Voucher {code}: -{self.format_money(discount_val)}")
+                
+        if note_parts:
+            self.lbl_discount_note.setText(" | ".join(note_parts))
+        else:
+            self.lbl_discount_note.setText("Chưa áp mã giảm giá")
 
     def _show_payment_invoice(self):
         if not can_do(self.current_role, "pos.checkout"):
@@ -717,7 +756,17 @@ class POSWidget(QWidget):
             self._applied_discount_code = ""
             self._applied_discount_value = ("none", 0)
             self.txt_discount_code.clear()
+            self.cmb_discount.setCurrentIndex(0)
             self.lbl_discount_note.setText("Chưa áp mã giảm giá")
+            
+            # Tự động xóa thông tin khách hàng để nhập thông tin khách hàng khác
+            self.txt_customer.clear()
+            self.txt_customer_phone.clear()
+            self.customer_tier = "Đồng"
+            self.customer_discount_percent = 0.0
+            self._last_intake_phone = None
+            self._customer_name_was_entered = False
+            
             self._render_cart()
 
     def _after_payment_integrations(self, invoice_data, paid_label):

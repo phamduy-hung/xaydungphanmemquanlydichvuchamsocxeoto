@@ -29,6 +29,8 @@ from modules.service_orders import (
     create_order_from_web_booking,
     get_web_booking_technician_map,
     transition_order_status,
+    _split_services_formula,
+    _resolve_service_names,
 )
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
@@ -575,13 +577,10 @@ class WebBookingsWidget(QWidget):
         if amount is None:
             self._refresh_service_price_map()
             formula = str(booking.get("dich_vu", "")).strip()
-            parts = [x.strip() for x in re.split(r"[+,;/|]", formula) if str(x).strip()]
-            if not parts and formula:
-                parts = [formula]
+            resolved = _resolve_service_names(_split_services_formula(formula))
             amount = 0
-            for part in parts:
-                matched = self._match_service_name(part) or part
-                amount += int(self._service_price_map.get(matched, 0))
+            for svc in resolved:
+                amount += int(self._service_price_map.get(svc, 0))
         if amount <= 0:
             return "Chưa báo giá"
         return f"{amount:,.0f} VNĐ"
