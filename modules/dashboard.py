@@ -164,9 +164,13 @@ class DashboardWidget(QWidget):
         self.scroll_area.setFrameShape(QScrollArea.NoFrame)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setStyleSheet("background-color: #090d16; border: none;")
+        if self.scroll_area.viewport():
+            self.scroll_area.viewport().setStyleSheet("background-color: #090d16;")
         
         self.scroll_content = QWidget()
         self.scroll_content.setObjectName("dashboardRoot")
+        self.scroll_content.setStyleSheet("background-color: #090d16;")
         self.ui = Ui_Form_Dashboard()
         self.ui.setupUi(self.scroll_content)
         self.scroll_area.setWidget(self.scroll_content)
@@ -639,12 +643,12 @@ class DashboardWidget(QWidget):
 
     def _apply_dark_style(self):
         self.setStyleSheet("""
-            QScrollArea {
-                background: transparent;
+            QScrollArea, QScrollArea > QWidget {
+                background-color: #090d16;
                 border: none;
             }
             QWidget#dashboardRoot {
-                background: transparent;
+                background-color: #090d16;
                 color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
