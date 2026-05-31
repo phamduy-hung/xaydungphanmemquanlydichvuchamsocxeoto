@@ -17,7 +17,7 @@ class SimpleBarChartWidget(QWidget):
         super().__init__(parent)
         self.labels = labels or []
         self.values = values or []
-        self.setMinimumHeight(220)
+        self.setMinimumHeight(180)
 
     def set_data(self, labels, values):
         self.labels = labels or []
@@ -111,7 +111,7 @@ class SimpleDonutChartWidget(QWidget):
     def __init__(self, segments, parent=None):
         super().__init__(parent)
         self.segments = segments  # [(name, value, color_hex)]
-        self.setMinimumHeight(220)
+        self.setMinimumHeight(180)
 
     def set_segments(self, segments):
         self.segments = segments or []
@@ -157,9 +157,25 @@ class DashboardWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+        
+        from PyQt5.QtWidgets import QScrollArea
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QScrollArea.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        self.scroll_content = QWidget()
+        self.scroll_content.setObjectName("dashboardRoot")
         self.ui = Ui_Form_Dashboard()
-        self.ui.setupUi(self)
-        self.setObjectName("dashboardRoot")
+        self.ui.setupUi(self.scroll_content)
+        self.scroll_area.setWidget(self.scroll_content)
+        
+        main_lay = QVBoxLayout(self)
+        main_lay.setContentsMargins(0, 0, 0, 0)
+        main_lay.addWidget(self.scroll_area)
+        
+        self.setObjectName("dashboardRootWrapper")
         self.ui.lbl_dashboard_title.setObjectName("dashboardTitle")
         self.ui.lbl_action_title.setObjectName("dashboardSubTitle")
         self.ui.lbl_quick_title.setObjectName("dashboardSubTitle")
@@ -612,7 +628,7 @@ class DashboardWidget(QWidget):
             }
             QHeaderView::section {
                 background-color: #161e2e;
-                color: #f97316;
+                color: #0ea5e9;
                 border: 0;
                 padding: 4px;
                 font-weight: bold;
@@ -623,6 +639,10 @@ class DashboardWidget(QWidget):
 
     def _apply_dark_style(self):
         self.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
             QWidget#dashboardRoot {
                 background: transparent;
                 color: #e2e8f0;
@@ -655,7 +675,8 @@ class DashboardWidget(QWidget):
             }
             QLabel#quickChartDesc {
                 color: #cbd5e1;
-                font-size: 12px;
+                font-size: 11px;
+                margin-top: 6px;
             }
             QFrame#cardFrame {
                 background-color: #121824;
