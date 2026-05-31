@@ -20,7 +20,7 @@ from ui.compiled.ui_themkhachhang import Ui_Dialog as Ui_Dialog_ThemKhachHang
 from modules.rbac_runtime import can_do
 from modules.audit_log import append_audit_log
 from modules.service_orders import find_latest_order_by_phone, get_order
-from database.connection import ensure_mysql_ready, execute, fetch_all
+from database.connection import ensure_mysql_ready, execute, fetch_all, fetch_one
 
 # Phân loại khớp bộ lọc trên ui_qlkhachhang (comboBox)
 CLASS_NEW = "Khách mới"

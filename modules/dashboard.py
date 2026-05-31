@@ -179,10 +179,9 @@ class DashboardWidget(QWidget):
         ]
         for title, color in stat_specs:
             card, lbl_v, lbl_s = self._make_stat_card(title, "…", color, "…")
-            self.ui.layout_stat_cards.addWidget(card)
+            self.ui.layout_stat_cards.addWidget(card, 1)
             self._stat_value_labels.append(lbl_v)
             self._stat_sub_labels.append(lbl_s)
-        self.ui.layout_stat_cards.addStretch()
 
         # Quick actions
         actions_lay = self.ui.layout_action_buttons
@@ -201,9 +200,8 @@ class DashboardWidget(QWidget):
 
         quick_lay = QHBoxLayout()
         quick_lay.setSpacing(16)
-        quick_lay.addWidget(self._make_quick_bar_card())
-        quick_lay.addWidget(self._make_quick_pie_card())
-        quick_lay.addStretch()
+        quick_lay.addWidget(self._make_quick_bar_card(), 6)
+        quick_lay.addWidget(self._make_quick_pie_card(), 4)
         self.ui.layout_quick_charts.addLayout(quick_lay)
 
         # Title for bottom section
@@ -216,12 +214,11 @@ class DashboardWidget(QWidget):
         bottom_lay.setSpacing(16)
         
         # Recent Orders Card
-        bottom_lay.addWidget(self._make_recent_orders_card())
+        bottom_lay.addWidget(self._make_recent_orders_card(), 6)
         
         # Inventory alerts card
-        bottom_lay.addWidget(self._make_low_stock_card())
+        bottom_lay.addWidget(self._make_low_stock_card(), 4)
         
-        bottom_lay.addStretch()
         self.ui.main_layout.insertLayout(7, bottom_lay)
 
         self._apply_dark_style()
@@ -448,7 +445,8 @@ class DashboardWidget(QWidget):
     def _make_stat_card(self, title, value, color, sub):
         card = HoverCardFrame()
         card.setObjectName("cardFrame")
-        card.setFixedSize(300, 165)
+        card.setMinimumWidth(180)
+        card.setFixedHeight(165)
         clay = QVBoxLayout(card)
         clay.setContentsMargins(0, 0, 0, 16)
         clay.setSpacing(10)
@@ -488,7 +486,7 @@ class DashboardWidget(QWidget):
     def _make_quick_bar_card(self):
         card = HoverCardFrame()
         card.setObjectName("quickChartCard")
-        card.setMinimumWidth(480)
+        card.setMinimumWidth(200)
         lay = QVBoxLayout(card)
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(8)
@@ -513,7 +511,7 @@ class DashboardWidget(QWidget):
     def _make_quick_pie_card(self):
         card = HoverCardFrame()
         card.setObjectName("quickChartCard")
-        card.setMinimumWidth(360)
+        card.setMinimumWidth(200)
         lay = QVBoxLayout(card)
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(8)
@@ -538,7 +536,7 @@ class DashboardWidget(QWidget):
     def _make_recent_orders_card(self):
         card = HoverCardFrame()
         card.setObjectName("quickChartCard")
-        card.setMinimumWidth(480)
+        card.setMinimumWidth(200)
         card.setMinimumHeight(240)
         lay = QVBoxLayout(card)
         lay.setContentsMargins(16, 14, 16, 14)
@@ -582,7 +580,7 @@ class DashboardWidget(QWidget):
     def _make_low_stock_card(self):
         card = HoverCardFrame()
         card.setObjectName("quickChartCard")
-        card.setMinimumWidth(360)
+        card.setMinimumWidth(200)
         card.setMinimumHeight(240)
         lay = QVBoxLayout(card)
         lay.setContentsMargins(16, 14, 16, 14)
