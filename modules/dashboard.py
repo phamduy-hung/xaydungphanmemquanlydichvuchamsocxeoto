@@ -9,6 +9,7 @@ from ui.compiled.ui_dashboard import Ui_Form as Ui_Form_Dashboard
 
 from database.connection import ensure_mysql_ready
 from database.models import fetch_dashboard_snapshot
+from utils.animated_stack import HoverCardFrame
 
 
 class SimpleBarChartWidget(QWidget):
@@ -337,7 +338,7 @@ class DashboardWidget(QWidget):
             self._pie_legend_lay.addWidget(wrap)
 
     def _make_stat_card(self, title, value, color, sub):
-        card = QFrame()
+        card = HoverCardFrame()
         card.setObjectName("cardFrame")
         card.setFixedSize(300, 165)
         clay = QVBoxLayout(card)
@@ -377,7 +378,7 @@ class DashboardWidget(QWidget):
         return b
 
     def _make_quick_bar_card(self):
-        card = QFrame()
+        card = HoverCardFrame()
         card.setObjectName("quickChartCard")
         card.setMinimumWidth(480)
         lay = QVBoxLayout(card)
@@ -402,7 +403,7 @@ class DashboardWidget(QWidget):
         return card
 
     def _make_quick_pie_card(self):
-        card = QFrame()
+        card = HoverCardFrame()
         card.setObjectName("quickChartCard")
         card.setMinimumWidth(360)
         lay = QVBoxLayout(card)

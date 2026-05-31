@@ -239,7 +239,7 @@ class ChamSocMarketingStore:
             )
             customer_rows = fetch_all(
                 """
-                SELECT id, full_name, phone, points, tier, discount_percent
+                SELECT id, full_name, phone, email, points, tier, discount_percent
                 FROM customers
                 ORDER BY id ASC
                 """
@@ -290,6 +290,7 @@ class ChamSocMarketingStore:
                         "id": str(c.get("id", "")),
                         "ten": c.get("full_name", ""),
                         "sdt": c.get("phone", ""),
+                        "email": c.get("email", ""),
                         "diem": int(c.get("points") or 0),
                         "hang": c.get("tier", TIER_DONG),
                         "chiet_khau": int(float(c.get("discount_percent") or 0)),
@@ -388,16 +389,20 @@ class ChamSocMarketingStore:
         for kh in loy.get("khach", []) or []:
             phone = str(kh.get("sdt", "")).strip()
             name = str(kh.get("ten", "")).strip() or f"Khách #{kh.get('id', '')}"
-            row = fetch_one("SELECT id FROM customers WHERE phone=%s", (phone,)) if phone else None
+            email = str(kh.get("email", "")).strip()
+            row = fetch_one("SELECT id, email, full_name FROM customers WHERE phone=%s", (phone,)) if phone else None
             if row:
+                final_email = email if email else (row.get("email") or "")
+                final_name = name if (name and not name.startswith("Khách #")) else (row.get("full_name") or name)
                 execute(
                     """
                     UPDATE customers
-                    SET full_name=%s, points=%s, tier=%s, discount_percent=%s
+                    SET full_name=%s, email=%s, points=%s, tier=%s, discount_percent=%s
                     WHERE id=%s
                     """,
                     (
-                        name,
+                        final_name,
+                        final_email,
                         int(kh.get("diem", 0)),
                         kh.get("hang", TIER_DONG),
                         float(kh.get("chiet_khau", 0)),
@@ -407,13 +412,14 @@ class ChamSocMarketingStore:
             else:
                 execute(
                     """
-                    INSERT INTO customers(customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
-                    VALUES (%s, %s, %s, '', %s, %s, %s, 0)
+                    INSERT INTO customers(customer_code, full_name, phone, email, vehicle_plate, points, tier, discount_percent, total_spent)
+                    VALUES (%s, %s, %s, %s, '', %s, %s, %s, 0)
                     """,
                     (
                         f"KH{str(kh.get('id', uuid.uuid4()))[:8]}",
                         name,
                         phone,
+                        email,
                         int(kh.get("diem", 0)),
                         kh.get("hang", TIER_DONG),
                         float(kh.get("chiet_khau", 0)),
@@ -538,58 +544,90 @@ def ghi_nhan_thanh_toan_tich_hop(ma_khach_hang: str, so_tien_vnd: int, ten_khach
 
     # Đồng bộ ngay tổng chi tiêu + điểm/hạng sang CRM MySQL để CRM hiển thị đúng sau khi refresh.
     try:
-        cid = int(str(ma_khach_hang).strip())
-    except Exception:
-        cid = 0
-    try:
-        if cid > 0:
-            row = fetch_one("SELECT id, total_spent FROM customers WHERE id=%s", (cid,))
-            if row:
+        phone_val = str(kh.get("sdt", "")).strip()
+        row = None
+        if phone_val:
+            row = fetch_one("SELECT id, email, total_spent FROM customers WHERE phone=%s", (phone_val,))
+        if not row:
+            try:
+                cid = int(str(ma_khach_hang).strip())
+                if cid > 0:
+                    row = fetch_one("SELECT id, email, total_spent FROM customers WHERE id=%s", (cid,))
+            except Exception:
+                cid = 0
+
+        if row:
+            execute(
+                """
+                UPDATE customers
+                SET full_name=%s,
+                    phone=%s,
+                    email=%s,
+                    points=%s,
+                    tier=%s,
+                    discount_percent=%s,
+                    total_spent=%s
+                WHERE id=%s
+                """,
+                (
+                    kh.get("ten", "").strip() or (row.get("full_name") or f"Khách #{row['id']}"),
+                    kh.get("sdt", ""),
+                    kh.get("email", "").strip() or (row.get("email") or ""),
+                    int(kh.get("diem", 0)),
+                    kh.get("hang", TIER_DONG),
+                    float(kh.get("chiet_khau", 1)),
+                    float(kh.get("tong_chi_tieu", 0)),
+                    row["id"],
+                ),
+            )
+        else:
+            cid_str = str(ma_khach_hang).strip()
+            code = f"KH{cid_str}" if cid_str.isdigit() else f"KH{datetime.now().strftime('%y%m%d%H%M%S')}"
+            if cid_str.isdigit():
                 execute(
                     """
-                    UPDATE customers
-                    SET full_name=%s,
-                        phone=%s,
-                        points=%s,
-                        tier=%s,
-                        discount_percent=%s,
-                        total_spent=%s
-                    WHERE id=%s
+                    INSERT INTO customers(id, customer_code, full_name, phone, email, vehicle_plate, points, tier, discount_percent, total_spent)
+                    VALUES (%s, %s, %s, %s, %s, '', %s, %s, %s, %s)
                     """,
                     (
-                        kh.get("ten", f"Khách #{cid}"),
-                        kh.get("sdt", ""),
+                        int(cid_str),
+                        code[:20],
+                        kh.get("ten", "Khách lẻ"),
+                        phone_val,
+                        kh.get("email", ""),
                         int(kh.get("diem", 0)),
                         kh.get("hang", TIER_DONG),
                         float(kh.get("chiet_khau", 1)),
                         float(kh.get("tong_chi_tieu", 0)),
-                        cid,
                     ),
                 )
             else:
                 execute(
                     """
-                    INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
+                    INSERT INTO customers(customer_code, full_name, phone, email, vehicle_plate, points, tier, discount_percent, total_spent)
                     VALUES (%s, %s, %s, %s, '', %s, %s, %s, %s)
                     """,
                     (
-                        cid,
-                        f"KH{cid:03d}",
-                        kh.get("ten", f"Khách #{cid}"),
-                        kh.get("sdt", ""),
+                        code[:20],
+                        kh.get("ten", "Khách lẻ"),
+                        phone_val,
+                        kh.get("email", ""),
                         int(kh.get("diem", 0)),
                         kh.get("hang", TIER_DONG),
                         float(kh.get("chiet_khau", 1)),
                         float(kh.get("tong_chi_tieu", 0)),
                     ),
                 )
-    except Exception:
-        pass
+    except Exception as e:
+        print("Loi dong bo khach hang sang MySQL:", e)
 
     tb = store.data["thong_bao"]
     noi_dung = (tb.get("mau_cam_on") or "Cảm ơn {ten}! Hóa đơn: {link_hd}").replace("{ten}", kh["ten"]).replace(
         "{ma_hd}", f"HD-{datetime.now().strftime('%Y%m%d%H%M')}"
     ).replace("{link_hd}", "https://hoadon.example.com/x")
+    
+
+
     store.data["nhat_ky_gui"].insert(
         0,
         {
@@ -1088,6 +1126,9 @@ class ChamSocKhachHangVaMarketingWindow(QWidget):
             .replace("{ma_hd}", "HD-DEMO")
             .replace("{link_hd}", "https://hoadon.example.com/demo")
         )
+        
+
+
         self.store.data.setdefault("nhat_ky_gui", []).insert(
             0,
             {

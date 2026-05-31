@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
                              QFrame, QLabel, QDialog, QLineEdit, QMessageBox, QToolButton)
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QPixmap, QIcon, QPainter, QPen, QColor, QPainterPath
+from utils.animated_stack import AnimatedStackedWidget, AnimatedNavButton
 from modules.audit_log import append_audit_log
 from database.connection import (
     ensure_mysql_ready,
@@ -162,7 +163,8 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.logout_btn)
 
         # Build Stack
-        self.stack = QStackedWidget()
+        self.stack = AnimatedStackedWidget()
+        self.stack.set_animation_type("slide_horizontal")
         
         # Page 0: Dashboard Placeholder
         self.page_dash = QWidget()
@@ -297,25 +299,10 @@ class MainWindow(QMainWindow):
                 background-color: #0f172a;
                 border-right: 1px solid #1f2937;
             }
-            QPushButton[navButton="true"] {
+            AnimatedNavButton {
                 background-color: transparent;
-                color: #cbd5e1;
-                border: 1px solid transparent;
-                border-radius: 10px;
-                padding: 10px 14px;
-                text-align: left;
-                font-weight: 600;
-            }
-            QPushButton[navButton="true"]:hover {
-                background-color: #1e293b;
-                border: 1px solid #334155;
-                color: #f8fafc;
-            }
-            QPushButton[navButton="true"]:checked {
-                background-color: #0ea5e9;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
-                font-weight: 700;
+                border: none;
+                outline: none;
             }
             #btnLogout {
                 background-color: #111827;
@@ -346,7 +333,7 @@ class MainWindow(QMainWindow):
                 padding: 4px 10px;
                 font-weight: 600;
             }
-            QStackedWidget {
+            AnimatedStackedWidget {
                 background-color: #0b1220;
             }
             #placeholderLabel {
@@ -357,10 +344,7 @@ class MainWindow(QMainWindow):
         """)
 
     def _add_nav_button(self, layout, key, text, callback):
-        btn = QPushButton(text)
-        btn.setProperty("navButton", "true")
-        btn.setCheckable(True)
-        btn.setFixedHeight(50)
+        btn = AnimatedNavButton(text)
         btn.clicked.connect(callback)
         self.nav_buttons.append(btn)
         self.nav_button_meta.append((key, btn))
@@ -968,17 +952,25 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    ok, msg = db_health_check()
-    if not ok:
-        QMessageBox.critical(
-            None,
-            "Lỗi kết nối cơ sở dữ liệu",
+    while True:
+        ok, msg = db_health_check()
+        if ok:
+            break
+        
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Lỗi kết nối cơ sở dữ liệu")
+        msg_box.setText(
             "Không thể kết nối MySQL.\n\n"
             f"Chi tiết: {msg}\n\n"
-            "Vui lòng kiểm tra file .env (DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS) "
-            "và trạng thái MySQL service rồi mở lại chương trình.",
+            "Vui lòng bật dịch vụ MySQL, kiểm tra cấu hình trong file .env và thử lại."
         )
-        return
+        retry_btn = msg_box.addButton("Thử lại", QMessageBox.AcceptRole)
+        exit_btn = msg_box.addButton("Thoát", QMessageBox.RejectRole)
+        msg_box.exec_()
+        
+        if msg_box.clickedButton() == exit_btn:
+            return
     try:
         auth_user = show_login_dialog()
     except Exception as exc:

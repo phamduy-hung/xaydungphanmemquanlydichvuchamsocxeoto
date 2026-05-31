@@ -77,6 +77,15 @@ class AddCustomerDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_Dialog_ThemKhachHang()
         self.ui.setupUi(self)
+        
+        # Chèn động trường Email vào vị trí thứ 8 và 9 của formLayout (trước Ghi chú)
+        from PyQt5.QtWidgets import QLabel, QLineEdit
+        self.lbl_email = QLabel("Email:")
+        self.txt_email = QLineEdit()
+        self.txt_email.setObjectName("txt_email")
+        self.ui.formLayout.insertRow(8, self.lbl_email)
+        self.ui.formLayout.insertRow(9, self.txt_email)
+        
         self._apply_input_text_dark_style()
         self.saved_customer_data = None
         self.setWindowTitle("Thêm khách hàng mới")
@@ -99,6 +108,7 @@ class AddCustomerDialog(QDialog):
         sdt = self.ui.txt_phone.text().strip()
         hang_xe = self.ui.txt_hangxe.text().strip()
         bien_so = self.ui.txt_plate.text().strip()
+        email = self.txt_email.text().strip()
         ghi_chu = self.ui.txt_note.toPlainText().strip()
 
         if not ten or not sdt:
@@ -110,6 +120,7 @@ class AddCustomerDialog(QDialog):
             "sdt": sdt,
             "hang_xe": hang_xe,
             "bien_so": bien_so,
+            "email": email,
             "phan_loai": CLASS_NEW,
             "tong_chi_tieu": 0,
             "ghi_chu": ghi_chu,
@@ -124,6 +135,15 @@ class EditCustomerDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_Dialog_SuaThongTinKH()
         self.ui.setupUi(self)
+        
+        # Chèn động trường Email vào vị trí thứ 10 và 11 của formLayout (trước Ghi chú)
+        from PyQt5.QtWidgets import QLabel, QLineEdit
+        self.lbl_email = QLabel("Email:")
+        self.txt_email = QLineEdit()
+        self.txt_email.setObjectName("txt_email")
+        self.ui.formLayout.insertRow(10, self.lbl_email)
+        self.ui.formLayout.insertRow(11, self.txt_email)
+        
         self._apply_input_text_dark_style()
         self.customer_data = customer_data or {}
         self.saved_customer_data = None
@@ -170,6 +190,7 @@ class EditCustomerDialog(QDialog):
         self.ui.txt_phone.setText(self.customer_data.get("sdt", ""))
         self.ui.txt_hangxe.setText(self.customer_data.get("hang_xe", ""))
         self.ui.txt_plate.setText(self.customer_data.get("bien_so", ""))
+        self.txt_email.setText(self.customer_data.get("email", ""))
         self.ui.txt_note.setPlainText(self.customer_data.get("ghi_chu", ""))
         self._set_combo_from_phan_loai()
 
@@ -178,6 +199,7 @@ class EditCustomerDialog(QDialog):
         sdt = self.ui.txt_phone.text().strip()
         hang_xe = self.ui.txt_hangxe.text().strip()
         bien_so = self.ui.txt_plate.text().strip()
+        email = self.txt_email.text().strip()
         ghi_chu = self.ui.txt_note.toPlainText().strip()
         spending = int(self.customer_data.get("tong_chi_tieu", 0))
 
@@ -191,6 +213,7 @@ class EditCustomerDialog(QDialog):
             "sdt": sdt,
             "hang_xe": hang_xe,
             "bien_so": bien_so,
+            "email": email,
             "phan_loai": self.customer_data.get("phan_loai", CLASS_NEW),
             "diem": int(self.customer_data.get("diem", 0)),
             "hang_thanh_vien": self.customer_data.get("hang_thanh_vien", TIER_DONG),
@@ -293,6 +316,17 @@ class CustomerManagerWidget(QWidget):
 
         from PyQt5.QtWidgets import QHeaderView
         customer_table = self.ui.tbl_customers
+        customer_table.setColumnCount(8)
+        customer_table.setHorizontalHeaderLabels([
+            "Mã khách hàng",
+            "Tên khách hàng",
+            "Số điện thoại",
+            "Email",
+            "Hãng xe",
+            "Biển số xe",
+            "Phân loại",
+            "Tổng chi tiêu"
+        ])
         customer_table.setSelectionBehavior(customer_table.SelectRows)
         customer_table.setSelectionMode(customer_table.SingleSelection)
         customer_table.setEditTriggers(customer_table.NoEditTriggers)
@@ -448,6 +482,7 @@ class CustomerManagerWidget(QWidget):
             "sdt": data.get("sdt", ""),
             "hang_xe": data.get("hang_xe", ""),
             "bien_so": data.get("bien_so", ""),
+            "email": data.get("email", ""),
             "phan_loai": data.get("phan_loai", CLASS_NEW),
             "diem": int(data.get("diem", 0)),
             "hang_thanh_vien": data.get("hang_thanh_vien", TIER_DONG),
@@ -487,12 +522,30 @@ class CustomerManagerWidget(QWidget):
             return plates[0][:20]
         return str(raw_plate or "").strip()[:20]
 
+    def _ensure_email_column(self):
+        try:
+            col = fetch_one(
+                """
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'customers'
+                  AND COLUMN_NAME = 'email'
+                LIMIT 1
+                """
+            )
+            if not col:
+                execute("ALTER TABLE customers ADD COLUMN email VARCHAR(100) DEFAULT ''")
+        except Exception as e:
+            print("Warning: _ensure_email_column failed:", e)
+
     def _load_from_mysql(self):
         try:
             self._ensure_vehicle_table()
+            self._ensure_email_column()
             rows = fetch_all(
                 """
-                SELECT id, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent
+                SELECT id, full_name, phone, vehicle_plate, email, points, tier, discount_percent, total_spent
                 FROM customers
                 ORDER BY id ASC
                 """
@@ -509,6 +562,7 @@ class CustomerManagerWidget(QWidget):
                     "sdt": r.get("phone", ""),
                     "hang_xe": "",
                     "bien_so": r.get("vehicle_plate", ""),
+                    "email": r.get("email", ""),
                     "diem": int(r.get("points") or 0),
                     "hang_thanh_vien": r.get("tier", TIER_DONG),
                     "chiet_khau": int(float(r.get("discount_percent") or 1)),
@@ -578,14 +632,15 @@ class CustomerManagerWidget(QWidget):
     def _save_all_to_mysql(self):
         ensure_mysql_ready()
         self._ensure_vehicle_table()
+        self._ensure_email_column()
         execute("DELETE FROM crm_service_history")
         execute("DELETE FROM crm_customer_vehicles")
         execute("DELETE FROM customers")
         for c in self.customers:
             execute(
                 """
-                INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO customers(id, customer_code, full_name, phone, vehicle_plate, email, points, tier, discount_percent, total_spent)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     int(c["id"]),
@@ -593,6 +648,7 @@ class CustomerManagerWidget(QWidget):
                     c.get("ten", ""),
                     c.get("sdt", ""),
                     self._first_plate_for_customers_table(c.get("bien_so", "")),
+                    c.get("email", ""),
                     int(c.get("diem", 0)),
                     c.get("hang_thanh_vien", TIER_DONG),
                     float(c.get("chiet_khau", 1)),
@@ -607,8 +663,50 @@ class CustomerManagerWidget(QWidget):
                 plates = [c.get("bien_so", "").strip()]
             if not brands and not plates:
                 continue
-            max_len = max(len(brands), len(plates), 1)
-            for idx in range(max_len):
+
+            # Ghép cặp thông minh sử dụng lịch sử làm dịch vụ
+            history_rows = self.service_history_map.get(int(c["id"]), [])
+            history_plate_map = {}
+            for h in history_rows:
+                h_plate = str(h.get("bien_so", "")).strip()
+                h_brand = str(h.get("hang_xe", "")).strip()
+                if h_plate and h_brand:
+                    history_plate_map[h_plate] = h_brand
+
+            paired_vehicles = []
+            used_brands = set()
+
+            for plate in plates:
+                if plate in history_plate_map:
+                    brand = history_plate_map[plate]
+                    paired_vehicles.append((brand, plate))
+                    if brand in brands:
+                        used_brands.add(brand)
+                else:
+                    paired_vehicles.append((None, plate))
+
+            leftover_brands = [b for b in brands if b not in used_brands]
+            leftover_idx = 0
+            for i, (brand, plate) in enumerate(paired_vehicles):
+                if brand is None:
+                    if leftover_idx < len(leftover_brands):
+                        paired_vehicles[i] = (leftover_brands[leftover_idx], plate)
+                        leftover_idx += 1
+                    else:
+                        paired_vehicles[i] = ("", plate)
+
+            while leftover_idx < len(leftover_brands):
+                paired_vehicles.append((leftover_brands[leftover_idx], ""))
+                leftover_idx += 1
+
+            if not paired_vehicles:
+                max_len = max(len(brands), len(plates), 1)
+                for idx in range(max_len):
+                    brand = brands[idx] if idx < len(brands) else ""
+                    plate = plates[idx] if idx < len(plates) else ""
+                    paired_vehicles.append((brand, plate))
+
+            for brand, plate in paired_vehicles:
                 execute(
                     """
                     INSERT INTO crm_customer_vehicles(customer_id, car_model, plate_no)
@@ -616,8 +714,8 @@ class CustomerManagerWidget(QWidget):
                     """,
                     (
                         int(c["id"]),
-                        brands[idx] if idx < len(brands) else "",
-                        plates[idx] if idx < len(plates) else "",
+                        brand,
+                        plate,
                     ),
                 )
         for cid, rows in self.service_history_map.items():
@@ -678,10 +776,11 @@ class CustomerManagerWidget(QWidget):
             table.setItem(row, 0, QTableWidgetItem(str(customer["id"])))
             table.setItem(row, 1, QTableWidgetItem(customer["ten"]))
             table.setItem(row, 2, QTableWidgetItem(customer["sdt"]))
-            table.setItem(row, 3, QTableWidgetItem(customer.get("hang_xe", "")))
-            table.setItem(row, 4, QTableWidgetItem(customer["bien_so"]))
-            table.setItem(row, 5, QTableWidgetItem(customer["phan_loai"]))
-            table.setItem(row, 6, QTableWidgetItem(self._format_currency(customer["tong_chi_tieu"])))
+            table.setItem(row, 3, QTableWidgetItem(customer.get("email", "")))
+            table.setItem(row, 4, QTableWidgetItem(customer.get("hang_xe", "")))
+            table.setItem(row, 5, QTableWidgetItem(customer["bien_so"]))
+            table.setItem(row, 6, QTableWidgetItem(customer["phan_loai"]))
+            table.setItem(row, 7, QTableWidgetItem(self._format_currency(customer["tong_chi_tieu"])))
 
         if filtered:
             table.selectRow(0)
@@ -844,6 +943,7 @@ class CustomerManagerWidget(QWidget):
                     "sdt": customer_phone if customer_phone and customer_phone != "-" else "",
                     "hang_xe": "",
                     "bien_so": "",
+                    "email": "",
                     "phan_loai": CLASS_NEW,
                     "diem": 0,
                     "hang_thanh_vien": TIER_DONG,

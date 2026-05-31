@@ -126,6 +126,7 @@ CREATE TABLE customers (
   full_name VARCHAR(120) NOT NULL,
   phone VARCHAR(20) NOT NULL UNIQUE,
   vehicle_plate VARCHAR(20) DEFAULT '',
+  email VARCHAR(100) DEFAULT '',
   points INT NOT NULL DEFAULT 0,
   tier VARCHAR(20) NOT NULL DEFAULT 'Đồng',
   discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
@@ -421,8 +422,8 @@ INSERT INTO rbac_section_permissions (role_name, section_key, can_access) VALUES
 ('Lễ tân', 'baocao', 0),
 ('Lễ tân', 'settings', 0),
 ('Lễ tân', 'nhansu', 0),
-('Lễ tân', 'tiepnhan', 0),
-('Lễ tân', 'hoadon', 0),
+('Lễ tân', 'tiepnhan', 1),
+('Lễ tân', 'hoadon', 1),
 ('Lễ tân', 'audit', 0);
 
 INSERT INTO customers (customer_code, full_name, phone, vehicle_plate, points, tier, discount_percent, total_spent) VALUES

@@ -195,7 +195,7 @@ class TiepNhanXeWidget(QWidget):
         self._service_input_cache = str(text or "")
 
     def _on_service_picked_from_dropdown(self, chosen):
-        """Chọn một dòng trong dropdown: chỉ hiển thị đúng dịch vụ đó (không tự nối/chuỗi hóa)."""
+        """Chọn một dòng trong dropdown: hỗ trợ chọn nhiều dịch vụ, nối tiếp vào dịch vụ trước bằng dấu +."""
         chosen = str(chosen or "").strip()
         if not chosen:
             return
@@ -203,8 +203,19 @@ class TiepNhanXeWidget(QWidget):
             return
         self._service_combo_guard = True
         try:
-            self.cmb_service.setCurrentText(chosen)
-            self._service_input_cache = chosen
+            current_text = str(self._service_input_cache or "").strip()
+            if current_text:
+                # Tránh trùng lặp: tách các phần đã có theo các dấu phân tách (+ , ; / |)
+                import re
+                parts = [p.strip() for p in re.split(r"[+,;/|]", current_text)]
+                if chosen not in parts:
+                    new_text = f"{current_text} + {chosen}"
+                else:
+                    new_text = current_text
+            else:
+                new_text = chosen
+            self.cmb_service.setCurrentText(new_text)
+            self._service_input_cache = new_text
         finally:
             self._service_combo_guard = False
 
@@ -286,9 +297,12 @@ class TiepNhanXeWidget(QWidget):
             svc_norm = self._normalize_text(svc)
             if not svc_norm:
                 continue
-            if svc_norm in remaining:
+            pattern = rf"\b{re.escape(svc_norm)}\b"
+            match = re.search(pattern, remaining)
+            if match:
                 results.append(svc)
-                remaining = remaining.replace(svc_norm, " ")
+                start, end = match.span()
+                remaining = remaining[:start] + " " * (end - start) + remaining[end:]
                 
         if results:
             return results
