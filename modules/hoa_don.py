@@ -85,29 +85,41 @@ class HoaDonManagerWidget(QWidget):
     def _apply_style(self):
         self.setStyleSheet(
             """
-            QWidget { background: transparent; color: #dbeafe; }
-            QLabel#invoiceTitle { color: #f8fafc; font-size: 18px; font-weight: 800; border: none; }
+            QWidget { background: transparent; color: #e2e8f0; font-family: "Segoe UI", "Inter"; }
+            QLabel#invoiceTitle { color: #f8fafc; font-size: 20px; font-weight: 800; border: none; padding-bottom: 5px; }
             QTableWidget {
-                background-color: #0f172a;
-                alternate-background-color: #111b31;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
+                selection-background-color: #0ea5e9;
+                selection-color: #ffffff;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
             }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #27354a;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
+                font-size: 13px;
                 padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
             """
         )

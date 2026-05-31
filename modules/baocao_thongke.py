@@ -358,24 +358,25 @@ class BaoCaoWindow(QMainWindow):
     def _apply_dark_style(self):
         self.setStyleSheet("""
             QWidget {
-                background-color: #0b1220;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
             QFrame, QGroupBox {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #27354a;
                 border-radius: 10px;
             }
             QGroupBox#group_chart_bar_month,
             QGroupBox#group_chart_pie_revenue {
-                border: 1px solid #334155;
+                border: 1px solid #27354a;
                 border-radius: 10px;
                 padding-top: 8px;
             }
             QFrame#chart_bar_month_placeholder,
             QFrame#chart_pie_revenue_placeholder {
                 border: none;
+                background-color: transparent;
             }
             QGroupBox {
                 margin-top: 18px;
@@ -387,69 +388,76 @@ class BaoCaoWindow(QMainWindow):
                 left: 10px;
                 top: -3px;
                 padding: 0 8px;
-                background-color: #0b1220;
-                color: #93c5fd;
+                background-color: #090d16;
+                color: #0ea5e9;
                 font-weight: 700;
             }
             QLabel {
-                color: #dbeafe;
+                color: #e2e8f0;
             }
             #lbl_summary {
-                color: #22d3ee;
+                color: #f97316;
                 font-weight: 800;
             }
             QDateEdit, QComboBox, QLineEdit {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 10px;
             }
+            QDateEdit:focus, QComboBox:focus, QLineEdit:focus {
+                border: 1px solid #f97316;
+            }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
+                border: 1px solid #27354a;
                 border-radius: 10px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 14px;
             }
             QPushButton:hover {
-                background-color: #0ea5e9;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
             QPushButton:checked {
-                background-color: #0284c7;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
+                background-color: #ea580c;
+                border: 1px solid #f97316;
+                color: #ffffff;
             }
             QTableWidget {
-                background-color: #0f172a;
-                alternate-background-color: #111b31;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
-                selection-color: #f8fafc;
+                selection-color: #ffffff;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
             }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #27354a;
             }
             QLabel#pieLegendLabel {
                 color: #f8fafc;
                 font-size: 13px;
                 font-weight: 600;
-                background-color: #111827;
+                background-color: #121824;
                 border: none;
                 padding: 2px 4px;
             }
             QWidget#pieLegendWrap {
-                background-color: #111827;
+                background-color: #121824;
                 border: none;
             }
             QLabel#lbl_chart_bar_month_desc,

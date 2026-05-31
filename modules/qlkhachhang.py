@@ -93,9 +93,39 @@ class AddCustomerDialog(QDialog):
 
     def _apply_input_text_dark_style(self):
         self.setStyleSheet("""
+            QDialog {
+                background-color: #090d16;
+                color: #e2e8f0;
+            }
+            QLabel {
+                color: #cbd5e1;
+                font-weight: 600;
+                font-size: 13px;
+            }
             QLineEdit, QTextEdit, QComboBox {
-                background-color: #ffffff;
-                color: #111827;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+                border: 1px solid #f97316;
+            }
+            QPushButton {
+                background-color: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+            QPushButton:hover {
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
         """)
 
@@ -104,6 +134,7 @@ class AddCustomerDialog(QDialog):
         self.ui.btn_cancel.clicked.connect(self.reject)
 
     def _save_data(self):
+        import re
         ten = self.ui.txt_name.text().strip()
         sdt = self.ui.txt_phone.text().strip()
         hang_xe = self.ui.txt_hangxe.text().strip()
@@ -114,6 +145,24 @@ class AddCustomerDialog(QDialog):
         if not ten or not sdt:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Tên khách hàng và Số điện thoại.")
             return
+
+        # Validate SĐT
+        clean_sdt = re.sub(r"[\s\-]", "", sdt)
+        if not re.match(r"^(0|84)[35789]\d{8}$", clean_sdt):
+            QMessageBox.warning(self, "Sai định dạng", "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 hoặc 84 và có 10 chữ số).")
+            return
+
+        # Validate Email
+        if email and not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+            QMessageBox.warning(self, "Sai định dạng", "Email không đúng định dạng (ví dụ: example@gmail.com).")
+            return
+
+        # Validate Biển số xe
+        if bien_so:
+            clean_plate = re.sub(r"[\s\-.]", "", bien_so)
+            if not re.match(r"^[a-zA-Z0-9]{4,15}$", clean_plate):
+                QMessageBox.warning(self, "Sai định dạng", "Biển số xe không hợp lệ (chỉ gồm chữ và số, từ 4-15 ký tự).")
+                return
 
         self.saved_customer_data = {
             "ten": ten,
@@ -154,9 +203,39 @@ class EditCustomerDialog(QDialog):
 
     def _apply_input_text_dark_style(self):
         self.setStyleSheet("""
+            QDialog {
+                background-color: #090d16;
+                color: #e2e8f0;
+            }
+            QLabel {
+                color: #cbd5e1;
+                font-weight: 600;
+                font-size: 13px;
+            }
             QLineEdit, QTextEdit, QComboBox {
-                background-color: #ffffff;
-                color: #111827;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+                border: 1px solid #f97316;
+            }
+            QPushButton {
+                background-color: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+            QPushButton:hover {
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
         """)
 
@@ -195,6 +274,7 @@ class EditCustomerDialog(QDialog):
         self._set_combo_from_phan_loai()
 
     def _save_data(self):
+        import re
         ten = self.ui.txt_name.text().strip()
         sdt = self.ui.txt_phone.text().strip()
         hang_xe = self.ui.txt_hangxe.text().strip()
@@ -206,6 +286,24 @@ class EditCustomerDialog(QDialog):
         if not ten or not sdt:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Tên khách hàng và Số điện thoại.")
             return
+
+        # Validate SĐT
+        clean_sdt = re.sub(r"[\s\-]", "", sdt)
+        if not re.match(r"^(0|84)[35789]\d{8}$", clean_sdt):
+            QMessageBox.warning(self, "Sai định dạng", "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 hoặc 84 và có 10 chữ số).")
+            return
+
+        # Validate Email
+        if email and not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+            QMessageBox.warning(self, "Sai định dạng", "Email không đúng định dạng (ví dụ: example@gmail.com).")
+            return
+
+        # Validate Biển số xe
+        if bien_so:
+            clean_plate = re.sub(r"[\s\-.]", "", bien_so)
+            if not re.match(r"^[a-zA-Z0-9]{4,15}$", clean_plate):
+                QMessageBox.warning(self, "Sai định dạng", "Biển số xe không hợp lệ (chỉ gồm chữ và số, từ 4-15 ký tự).")
+                return
 
         self.saved_customer_data = {
             "id": self.customer_data.get("id"),
@@ -349,34 +447,38 @@ class CustomerManagerWidget(QWidget):
     def _apply_dark_style(self):
         self.setStyleSheet("""
             QWidget {
-                background-color: #0b1220;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
             QGroupBox {
-                background-color: #111827;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                background-color: #121824;
+                border: 1px solid #222e44;
+                border-radius: 12px;
                 margin-top: 8px;
             }
             QGroupBox::title {
-                color: #93c5fd;
+                color: #0ea5e9;
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 4px;
+                font-weight: 700;
             }
             QLineEdit, QComboBox, QTextEdit {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 10px;
             }
+            QLineEdit:focus, QComboBox:focus, QTextEdit:focus {
+                border: 1px solid #f97316;
+            }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 12px;
@@ -386,21 +488,39 @@ class CustomerManagerWidget(QWidget):
                 border: 1px solid #38bdf8;
                 color: #f8fafc;
             }
+            QPushButton#btn_themKH {
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+            }
+            QPushButton#btn_themKH:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
+            }
+            QPushButton#btn_xoaKH:hover {
+                background-color: #ef4444;
+                border: 1px solid #f87171;
+                color: #ffffff;
+            }
             QTableWidget {
-                background-color: #0f172a;
-                alternate-background-color: #111b31;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
                 selection-color: #f8fafc;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #222e44;
             }
         """)
 

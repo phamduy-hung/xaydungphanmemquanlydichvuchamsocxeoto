@@ -39,9 +39,9 @@ class SimpleBarChartWidget(QWidget):
         chart_h = max(10, h - top - bottom)
 
         axis_color = QColor("#64748b")
-        grid_color = QColor("#334155")
+        grid_color = QColor("#222e44")
         text_color = QColor("#cbd5e1")
-        bar_color = QColor("#34d399")
+        bar_color = QColor("#0ea5e9")
 
         # Axes
         p.setPen(QPen(axis_color, 1))
@@ -147,7 +147,7 @@ class SimpleDonutChartWidget(QWidget):
         ix = x + (size - inner) // 2
         iy = y + (size - inner) // 2
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#111827"))
+        p.setBrush(QColor("#121824"))
         p.drawEllipse(ix, iy, inner, inner)
 
 class DashboardWidget(QWidget):
@@ -431,8 +431,8 @@ class DashboardWidget(QWidget):
         self.setStyleSheet("""
             QWidget#dashboardRoot {
                 background: transparent;
-                color: #dbeafe;
-                font-family: "Segoe UI";
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             QLabel#dashboardTitle {
                 color: #f8fafc;
@@ -440,17 +440,17 @@ class DashboardWidget(QWidget):
                 font-weight: 800;
             }
             QLabel#dashboardSubTitle {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-size: 16px;
                 font-weight: 700;
             }
             QFrame#quickChartCard {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #222e44;
                 border-radius: 12px;
             }
             QLabel#quickChartTitle {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-size: 13px;
                 font-weight: 700;
             }
@@ -464,12 +464,12 @@ class DashboardWidget(QWidget):
                 font-size: 12px;
             }
             QFrame#cardFrame {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #222e44;
                 border-radius: 12px;
             }
             QFrame#cardFrame QLabel#cardTitle {
-                color: #93c5fd;
+                color: #cbd5e1;
                 font-size: 11px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
@@ -480,22 +480,22 @@ class DashboardWidget(QWidget):
                 font-weight: 800;
             }
             QFrame#cardFrame QLabel#cardSub {
-                color: #cbd5e1;
+                color: #94a3b8;
                 font-size: 12px;
                 font-weight: 500;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 14px;
             }
             QPushButton:hover {
-                background-color: #0ea5e9;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
         """)

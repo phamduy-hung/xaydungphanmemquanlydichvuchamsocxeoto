@@ -59,6 +59,7 @@ class EmployeeDialog(QDialog):
         self.saved_data = None
         self.setWindowTitle("Thêm nhân viên" if not employee else "Sửa thông tin nhân viên")
         self._build_ui()
+        self._apply_style()
         self._fill_data()
 
     def _build_ui(self):
@@ -87,6 +88,44 @@ class EmployeeDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
+    def _apply_style(self):
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #090d16;
+                color: #e2e8f0;
+            }
+            QLabel {
+                color: #cbd5e1;
+                font-weight: 600;
+                font-size: 13px;
+            }
+            QLineEdit, QComboBox, QDateEdit {
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus {
+                border: 1px solid #f97316;
+            }
+            QPushButton {
+                background-color: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+            QPushButton:hover {
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
+            }
+        """)
+
     def _fill_data(self):
         if not self.employee:
             self.date_join.setDate(QDate.currentDate())
@@ -107,6 +146,13 @@ class EmployeeDialog(QDialog):
         if not name or not phone:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập Họ tên và SĐT.")
             return
+
+        # Validate SĐT
+        clean_phone = re.sub(r"[\s\-]", "", phone)
+        if not re.match(r"^(0|84)[35789]\d{8}$", clean_phone):
+            QMessageBox.warning(self, "Sai định dạng", "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 hoặc 84 và có 10 chữ số).")
+            return
+
         self.saved_data = {
             "name": name,
             "phone": phone,
@@ -165,13 +211,13 @@ class QuanLyNhanVienWidget(QWidget):
     def _apply_dark_style(self):
         self.setStyleSheet("""
             QWidget {
-                background-color: #0b1220;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
             QFrame, QGroupBox {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #27354a;
                 border-radius: 10px;
             }
             QGroupBox {
@@ -179,29 +225,33 @@ class QuanLyNhanVienWidget(QWidget):
                 padding-top: 8px;
             }
             QGroupBox::title {
-                color: #93c5fd;
+                color: #0ea5e9;
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 left: 10px;
                 padding: 0 6px;
+                font-weight: bold;
             }
             QLineEdit, QComboBox, QDateEdit, QTextEdit {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 8px;
                 selection-background-color: #0ea5e9;
-                selection-color: #f8fafc;
+                selection-color: #ffffff;
+            }
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QTextEdit:focus {
+                border: 1px solid #f97316;
             }
             QTabWidget::pane {
-                border: 1px solid #1f2937;
-                background: #0b1220;
+                border: 1px solid #27354a;
+                background: #090d16;
             }
             QTabBar::tab {
-                background: #111827;
+                background: #121824;
                 color: #cbd5e1;
-                border: 1px solid #334155;
+                border: 1px solid #27354a;
                 border-bottom: none;
                 padding: 7px 14px;
                 margin-right: 3px;
@@ -210,46 +260,50 @@ class QuanLyNhanVienWidget(QWidget):
             }
             QTabBar::tab:selected {
                 background: #0ea5e9;
-                color: #f8fafc;
+                color: #ffffff;
                 border-color: #38bdf8;
                 font-weight: 700;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
+                border: 1px solid #27354a;
                 border-radius: 10px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 8px 12px;
             }
             QPushButton:hover {
-                background-color: #0ea5e9;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
             }
             QPushButton:pressed {
-                background-color: #0284c7;
-                border-color: #0ea5e9;
+                background-color: #ea580c;
+                border-color: #f97316;
             }
             QTableWidget {
-                background-color: #0f172a;
-                alternate-background-color: #111b31;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
-                selection-color: #f8fafc;
+                selection-color: #ffffff;
             }
             QTableWidget::item {
                 color: #e2e8f0;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #27354a;
             }
             QAbstractScrollArea {
                 border-radius: 10px;

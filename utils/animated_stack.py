@@ -276,8 +276,8 @@ class AnimatedNavButton(QPushButton):
 
         # 1. Vẽ nền
         if self._check_progress > 0.0:
-            # Màu checked: Xanh trời dịu dần (từ đậm đến nhạt tuỳ tiến độ hoạt ảnh)
-            bg_color = QColor(14, 165, 233, int(self._check_progress * 255))
+            # Màu checked: Xanh trời dịu nhẹ bán trong suốt (alpha max 45)
+            bg_color = QColor(14, 165, 233, int(self._check_progress * 45))
             p.setBrush(bg_color)
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(r.adjusted(4, 2, -4, -2), 8, 8)
@@ -288,11 +288,11 @@ class AnimatedNavButton(QPushButton):
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(r.adjusted(4, 2, -4, -2), 8, 8)
 
-        # 2. Vẽ thanh chỉ báo hoạt động bên trái
+        # 2. Vẽ thanh chỉ báo hoạt động bên trái (Màu Cam Neon)
         if self._check_progress > 0.0:
             ind_height = int(24 * self._check_progress)
             ind_y = (r.height() - ind_height) // 2
-            p.setBrush(QColor("#38bdf8"))
+            p.setBrush(QColor("#f97316"))
             p.setPen(Qt.NoPen)
             p.drawRoundedRect(8, ind_y, 4, ind_height, 2, 2)
 
@@ -330,7 +330,7 @@ class HoverCardFrame(QFrame):
     def enterEvent(self, event):
         self._blur_anim.setStartValue(15)
         self._blur_anim.setEndValue(28)
-        self._shadow.setColor(QColor(14, 165, 233, 90))  # Phát sáng xanh trời nhẹ
+        self._shadow.setColor(QColor(249, 115, 22, 100))  # Phát sáng màu Cam Neon nhẹ
         self._shadow.setOffset(0, 6)
         self._blur_anim.start()
         super().enterEvent(event)

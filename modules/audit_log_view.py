@@ -67,28 +67,54 @@ class AuditLogViewWidget(QWidget):
     def _apply_style(self):
         self.setStyleSheet(
             """
-            QWidget { background: transparent; color: #dbeafe; }
-            QLabel#auditTitle { color: #f8fafc; font-size: 18px; font-weight: 800; border: none; }
-            QLineEdit { background:#0f172a; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:6px; }
+            QWidget { background: transparent; color: #e2e8f0; font-family: "Segoe UI", "Inter"; }
+            QLabel#auditTitle { color: #f8fafc; font-size: 20px; font-weight: 800; border: none; padding-bottom: 5px; }
+            QLineEdit {
+                background: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                padding: 6px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #f97316;
+            }
             QTableWidget {
-                background:#0f172a;
-                alternate-background-color:#111b31;
-                color:#e2e8f0;
-                border:1px solid #334155;
-                gridline-color:#1f2937;
-                selection-background-color:#0ea5e9;
-                selection-color:#f8fafc;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
+                selection-background-color: #0ea5e9;
+                selection-color: #ffffff;
             }
             QTableWidget::item {
-                background-color:#0f172a;
-                color:#e2e8f0;
+                color: #e2e8f0;
             }
-            QTableWidget::item:alternate {
-                background-color:#111b31;
-                color:#e2e8f0;
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
             }
-            QHeaderView::section { background:#1e293b; color:#bae6fd; border:0; padding:7px; font-weight:700; }
-            QPushButton { background:#1e293b; color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:8px; }
+            QHeaderView::section {
+                background: #161e2e;
+                color: #0ea5e9;
+                border: 0;
+                padding: 8px;
+                font-weight: 700;
+                border-bottom: 2px solid #27354a;
+            }
+            QPushButton {
+                background: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                border-radius: 10px;
+                padding: 8px 12px;
+                font-weight: 700;
+            }
+            QPushButton:hover {
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
+            }
             """
         )
 

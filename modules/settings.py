@@ -84,6 +84,7 @@ class SettingsWidget(QWidget):
             self.ui.txt_qr_image_path.setText(selected)
 
     def _save_settings(self):
+        import re
         payload = {
             "store_name": self.ui.txt_store_name.text().strip(),
             "store_address": self.ui.txt_store_address.text().strip(),
@@ -100,8 +101,33 @@ class SettingsWidget(QWidget):
             "qr_payload": self.ui.txt_qr_payload.text().strip(),
             "qr_image_path": self.ui.txt_qr_image_path.text().strip(),
         }
+        
+        # Validate VAT
         vat_raw = str(payload.get("default_vat", "10")).replace("%", "").strip() or "10"
-        payload["default_vat"] = float(vat_raw)
+        try:
+            vat_val = float(vat_raw)
+            if vat_val < 0 or vat_val > 100:
+                raise ValueError()
+        except ValueError:
+            QMessageBox.warning(self, "Sai định dạng", "Giá trị VAT phải là số từ 0 đến 100.")
+            return
+        payload["default_vat"] = vat_val
+
+        # Validate Hotline
+        hotline = payload["store_hotline"]
+        if hotline:
+            clean_hl = re.sub(r"[\s\-]", "", hotline)
+            if not re.match(r"^\d{9,11}$", clean_hl):
+                QMessageBox.warning(self, "Sai định dạng", "Hotline cửa hàng không hợp lệ (phải từ 9-11 chữ số).")
+                return
+
+        # Validate Số tài khoản ngân hàng
+        bank_acc = payload["bank_account_number"]
+        if bank_acc:
+            if not re.match(r"^\d{6,20}$", bank_acc):
+                QMessageBox.warning(self, "Sai định dạng", "Số tài khoản ngân hàng không hợp lệ (chỉ gồm từ 6-20 chữ số).")
+                return
+
         ensure_mysql_ready()
         upsert_system_settings(payload)
         QMessageBox.information(self, "Cài đặt hệ thống", "Đã lưu thông tin thanh toán và cài đặt.")
@@ -110,7 +136,7 @@ class SettingsWidget(QWidget):
         self.setStyleSheet("""
             QWidget#settingsRoot {
                 background: transparent;
-                color: #dbeafe;
+                color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
             QScrollArea {
@@ -118,18 +144,18 @@ class SettingsWidget(QWidget):
                 background: transparent;
             }
             QScrollArea QWidget#qt_scrollarea_viewport {
-                background-color: #0b1220;
+                background-color: #090d16;
             }
             QWidget#settingsContainer {
-                background-color: #0b1220;
+                background-color: #090d16;
             }
             QFrame#settingsSection {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #222e44;
                 border-radius: 12px;
             }
             QLabel#settingsSectionTitle {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-size: 14px;
                 font-weight: 800;
             }
@@ -138,34 +164,35 @@ class SettingsWidget(QWidget):
                 font-weight: 600;
             }
             QLineEdit, QComboBox {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 7px 10px;
             }
             QLineEdit:focus, QComboBox:focus {
-                border: 1px solid #38bdf8;
+                border: 1px solid #f97316;
             }
             QCheckBox {
                 color: #cbd5e1;
             }
             QPushButton#btnSaveSettings {
-                background-color: #0ea5e9;
-                color: #f8fafc;
-                border: 1px solid #38bdf8;
-                border-radius: 10px;
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 8px 14px;
             }
             QPushButton#btnSaveSettings:hover {
-                background-color: #0284c7;
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
             QPushButton#btnSecondary {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 font-weight: 700;
                 padding: 7px 12px;
@@ -174,6 +201,6 @@ class SettingsWidget(QWidget):
             QPushButton#btnSecondary:hover {
                 background-color: #0ea5e9;
                 border: 1px solid #38bdf8;
-                color: #f8fafc;
+                color: #ffffff;
             }
         """)

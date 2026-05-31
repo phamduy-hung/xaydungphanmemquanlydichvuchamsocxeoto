@@ -295,11 +295,11 @@ class WebBookingsWidget(QWidget):
         self.setStyleSheet("""
             QWidget#webBookingRoot {
                 background: transparent;
-                color: #dbeafe;
-                font-family: "Segoe UI";
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             QLabel {
-                color: #dbeafe;
+                color: #cbd5e1;
             }
             QLabel#webBookingTitle,
             QLabel#webPendingInfo {
@@ -308,45 +308,44 @@ class WebBookingsWidget(QWidget):
                 padding: 0;
             }
             QLineEdit#webSearchInput {
-                background-color: #0b1220;
-                color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 padding: 0 12px;
-                font-size: 11px;
+                font-size: 12px;
                 selection-background-color: #0ea5e9;
             }
             QLineEdit#webSearchInput:focus {
-                border: 1px solid #38bdf8;
-                background-color: #0f172a;
+                border: 1px solid #f97316;
             }
             QLineEdit#webSearchInput::placeholder {
                 color: #94a3b8;
             }
             QLabel#webBookingTitle {
-                color: #f8fafc;
-                font-size: 18px;
+                color: #ffffff;
+                font-size: 20px;
                 font-weight: 800;
             }
             QLabel#webPendingInfo {
-                color: #cbd5e1;
-                font-size: 11px;
+                color: #94a3b8;
+                font-size: 12px;
             }
             QFrame {
-                background-color: #111827;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                background-color: #121824;
+                border: 1px solid #222e44;
+                border-radius: 12px;
             }
             QFrame#webStatCard {
-                background-color: #111827;
-                border: 1px solid #2b3d57;
+                background-color: #121824;
+                border: 1px solid #222e44;
                 border-radius: 12px;
             }
             QLabel#webStatLabel {
                 color: #cbd5e1;
                 font-size: 11px;
                 font-weight: 700;
-                letter-spacing: 0.4px;
+                letter-spacing: 0.5px;
                 border: none;
                 background: transparent;
             }
@@ -358,49 +357,61 @@ class WebBookingsWidget(QWidget):
                 background: transparent;
             }
             QTabWidget::pane {
-                border: 1px solid #334155;
-                background-color: #111827;
-                border-radius: 10px;
+                border: 1px solid #222e44;
+                background-color: #121824;
+                border-radius: 12px;
             }
             QTabBar::tab {
-                background: #1e293b;
+                background: #161e2e;
                 color: #cbd5e1;
                 padding: 8px 14px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
                 margin-right: 3px;
+                border: 1px solid #222e44;
+                border-bottom: none;
             }
             QTabBar::tab:selected {
                 background: #0ea5e9;
-                color: #f8fafc;
+                color: #ffffff;
+                border-color: #38bdf8;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
-                font-size: 11px;
+                font-size: 12px;
                 padding: 9px 14px;
             }
             QPushButton:hover {
                 background-color: #0ea5e9;
                 border: 1px solid #38bdf8;
-                color: #f8fafc;
+                color: #ffffff;
             }
             QPushButton#btnWebAccept {
-                background-color: #0f766e;
-                border: 1px solid #14b8a6;
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
+            }
+            QPushButton#btnWebAccept:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
             QPushButton#btnWebReject {
                 background-color: #7f1d1d;
                 border: 1px solid #ef4444;
+                color: #ffffff;
+            }
+            QPushButton#btnWebReject:hover {
+                background-color: #b91c1c;
             }
             QPushButton#btnWebSearchClear {
-                background-color: #1f2937;
-                border: 1px solid #334155;
+                background-color: #161e2e;
+                border: 1px solid #27354a;
                 color: #cbd5e1;
-                border-radius: 10px;
+                border-radius: 8px;
                 font-size: 12px;
                 font-weight: 700;
                 padding: 0 10px;
@@ -408,30 +419,34 @@ class WebBookingsWidget(QWidget):
             QPushButton#btnWebSearchClear:hover {
                 background-color: #334155;
                 border: 1px solid #475569;
-                color: #f8fafc;
+                color: #ffffff;
             }
             QTableWidget {
-                background-color: #0f172a;
-                alternate-background-color: #111b31;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
-                selection-color: #f8fafc;
+                selection-color: #ffffff;
             }
             QTableWidget::item {
-                background-color: #0f172a;
+                background-color: #0c101a;
                 color: #e2e8f0;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
             QTableWidget::item:alternate {
-                background-color: #111b31;
+                background-color: #121824;
             }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #222e44;
             }
         """)
 

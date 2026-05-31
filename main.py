@@ -292,12 +292,13 @@ class MainWindow(QMainWindow):
     def _apply_dark_theme(self):
         self.setStyleSheet("""
             QMainWindow, QWidget#mainRoot {
-                background-color: #0b1220;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             #sidebar {
-                background-color: #0f172a;
-                border-right: 1px solid #1f2937;
+                background-color: #111625;
+                border-right: 1px solid #222e44;
             }
             AnimatedNavButton {
                 background-color: transparent;
@@ -305,8 +306,8 @@ class MainWindow(QMainWindow):
                 outline: none;
             }
             #btnLogout {
-                background-color: #111827;
-                border: 1px solid #374151;
+                background-color: #1a1e29;
+                border: 1px solid #2b3954;
                 color: #f87171;
                 border-radius: 8px;
                 font-weight: 700;
@@ -317,27 +318,27 @@ class MainWindow(QMainWindow):
                 color: #fee2e2;
             }
             #topHeaderBar {
-                background-color: #111827;
-                border-bottom: 1px solid #1f2937;
+                background-color: #121824;
+                border-bottom: 1px solid #222e44;
             }
             #lblPageTitle {
-                color: #f8fafc;
+                color: #ffffff;
                 font-size: 22px;
                 font-weight: 800;
             }
             #statusBadge {
-                background-color: #1e293b;
-                color: #93c5fd;
-                border: 1px solid #334155;
+                background-color: #161f30;
+                color: #0ea5e9;
+                border: 1px solid #222e44;
                 border-radius: 12px;
-                padding: 4px 10px;
+                padding: 5px 12px;
                 font-weight: 600;
             }
             AnimatedStackedWidget {
-                background-color: #0b1220;
+                background-color: #090d16;
             }
             #placeholderLabel {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-size: 22px;
                 font-weight: 700;
             }

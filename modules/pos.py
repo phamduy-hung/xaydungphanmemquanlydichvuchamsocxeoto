@@ -164,62 +164,78 @@ class InvoiceDialog(QDialog):
         self.setStyleSheet(
             """
             QDialog {
-                background-color: #0b1220;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             QLabel {
                 border: none;
                 background: transparent;
             }
             QFrame#billCard {
-                background-color: #111827;
-                border: none;
-                border-radius: 10px;
+                background-color: #121824;
+                border: 1px solid #222e44;
+                border-radius: 12px;
             }
             QLabel#billTitle {
                 color: #f8fafc;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 800;
             }
             QLabel#billSub {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-weight: 700;
                 font-size: 13px;
             }
             QLabel#billMeta {
                 color: #cbd5e1;
-                font-size: 12px;
+                font-size: 13px;
             }
             QLabel#billTotal {
-                color: #22d3ee;
-                font-size: 13px;
+                color: #f97316;
+                font-size: 16px;
                 font-weight: 800;
             }
             QTableWidget {
-                background-color: #0f172a;
+                background-color: #0c101a;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
                 selection-color: #f8fafc;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0;
-                padding: 7px;
+                padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #222e44;
             }
             QPushButton {
-                background-color: #0ea5e9;
-                color: #f8fafc;
-                border: 1px solid #38bdf8;
+                background-color: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 font-weight: 700;
                 padding: 8px 14px;
             }
             QPushButton:hover {
-                background-color: #0284c7;
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #ffffff;
+            }
+            QPushButton#btn_mark_paid {
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+            }
+            QPushButton#btn_mark_paid:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
             """
         )
@@ -726,6 +742,14 @@ class POSWidget(QWidget):
         payload = f"{qr_base}|{invoice_no}|{grand_total}"
         customer_name = (self.txt_customer.text() or "").strip() or "Khách lẻ"
         customer_phone = (self.txt_customer_phone.text() or "").strip() or "-"
+
+        # Validate SĐT khách nếu có điền
+        if customer_phone and customer_phone != "-":
+            clean_sdt = re.sub(r"[\s\-]", "", customer_phone)
+            if not re.match(r"^(0|84)[35789]\d{8}$", clean_sdt):
+                self._show_notice("Sai định dạng", "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 hoặc 84 và có 10 chữ số).", "warning")
+                return
+
         invoice_data = {
             "invoice_no": invoice_no,
             "created_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -1004,8 +1028,8 @@ class POSWidget(QWidget):
             """
             QWidget#posRoot {
                 background: transparent;
-                color: #dbeafe;
-                font-family: "Segoe UI";
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             QLabel {
                 border: none;
@@ -1013,12 +1037,13 @@ class POSWidget(QWidget):
             }
             QLabel#posTitle {
                 color: #f8fafc;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 800;
             }
             QLabel#posSubTitle {
-                color: #93c5fd;
+                color: #0ea5e9;
                 font-weight: 700;
+                font-size: 14px;
             }
             QLabel#posMuted {
                 color: #94a3b8;
@@ -1032,42 +1057,42 @@ class POSWidget(QWidget):
                 padding: 0;
             }
             QLabel#posTotal {
-                color: #22d3ee;
-                font-size: 20px;
+                color: #f97316;
+                font-size: 24px;
                 font-weight: 800;
                 border: none;
                 background: transparent;
             }
             QFrame#posCard {
-                background-color: #111827;
-                border: 1px solid #334155;
+                background-color: #121824;
+                border: 1px solid #222e44;
                 border-radius: 12px;
             }
             QFrame#customerFrame {
                 background-color: transparent;
-                border: 1px solid #334155;
+                border: 1px solid #222e44;
                 border-radius: 10px;
             }
             QLineEdit {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 8px 10px;
             }
+            QLineEdit:focus {
+                border: 1px solid #f97316;
+            }
             QComboBox {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 7px 10px;
                 min-height: 18px;
             }
-            QComboBox:hover {
-                border: 1px solid #38bdf8;
-            }
-            QComboBox:focus {
-                border: 1px solid #38bdf8;
+            QComboBox:hover, QComboBox:focus {
+                border: 1px solid #f97316;
             }
             QComboBox::drop-down {
                 border: none;
@@ -1080,36 +1105,38 @@ class POSWidget(QWidget):
                 height: 8px;
             }
             QComboBox QAbstractItemView {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 selection-background-color: #0ea5e9;
                 selection-color: #f8fafc;
                 outline: 0;
             }
-            QLineEdit:focus {
-                border: 1px solid #38bdf8;
-            }
             QTableWidget {
-                background-color: #0f172a;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
                 selection-color: #f8fafc;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #222e44;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 14px;
@@ -1117,16 +1144,17 @@ class POSWidget(QWidget):
             QPushButton:hover {
                 background-color: #0ea5e9;
                 border: 1px solid #38bdf8;
-                color: #f8fafc;
+                color: #ffffff;
             }
             QPushButton#btnPay {
-                background-color: #0ea5e9;
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
+                background-color: #f97316;
+                border: 1px solid #ff7a22;
+                color: #ffffff;
                 font-size: 16px;
             }
             QPushButton#btnPay:hover {
-                background-color: #0284c7;
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
             """
         )

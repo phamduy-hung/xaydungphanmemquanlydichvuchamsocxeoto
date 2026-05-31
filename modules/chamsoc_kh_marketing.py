@@ -746,34 +746,46 @@ class ThemSuaVoucherDialog(QDialog):
     def _apply_dark_style(self) -> None:
         self.setStyleSheet("""
             QDialog {
-                background-color: #111827;
-                color: #dbeafe;
+                background-color: #090d16;
+                color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
             QLabel {
-                color: #dbeafe;
+                color: #cbd5e1;
                 font-weight: 600;
             }
             QLineEdit, QTextEdit, QDateEdit, QComboBox {
-                background-color: #ffffff;
-                color: #111827;
-                border: 1px solid #cbd5e1;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 8px;
             }
+            QLineEdit:focus, QTextEdit:focus, QDateEdit:focus, QComboBox:focus {
+                border: 1px solid #f97316;
+            }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 14px;
             }
             QPushButton:hover {
                 background-color: #0ea5e9;
-                border: 1px solid #0ea5e9;
-                color: #f8fafc;
+                border: 1px solid #38bdf8;
+                color: #ffffff;
+            }
+            QPushButton#btn_luu_voucher {
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+            }
+            QPushButton#btn_luu_voucher:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
         """)
 
@@ -815,55 +827,58 @@ class ChamSocKhachHangVaMarketingWindow(QWidget):
     def _apply_dark_style(self) -> None:
         self.setStyleSheet("""
             QWidget {
-                background-color: #0b1220;
-                color: #dbeafe;
-                font-family: "Segoe UI";
+                background-color: #090d16;
+                color: #e2e8f0;
+                font-family: "Segoe UI", "Inter";
             }
             QGroupBox {
-                background-color: #111827;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                background-color: #121824;
+                border: 1px solid #222e44;
+                border-radius: 12px;
                 margin-top: 8px;
             }
             QGroupBox::title {
-                color: #93c5fd;
+                color: #0ea5e9;
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 4px;
                 font-weight: 700;
             }
             QTabWidget::pane {
-                border: 1px solid #334155;
-                border-radius: 10px;
-                background: #111827;
+                border: 1px solid #222e44;
+                border-radius: 12px;
+                background: #121824;
             }
             QTabBar::tab {
-                background: #1e293b;
+                background: #161e2e;
                 color: #cbd5e1;
                 padding: 8px 14px;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
                 margin-right: 3px;
+                border: 1px solid #222e44;
+                border-bottom: none;
             }
             QTabBar::tab:selected {
                 background: #0ea5e9;
-                color: #f8fafc;
+                color: #ffffff;
+                border-color: #38bdf8;
             }
             QLineEdit, QTextEdit, QDateEdit, QComboBox, QSpinBox {
-                background-color: #0f172a;
-                color: #e2e8f0;
-                border: 1px solid #334155;
+                background-color: #0c101a;
+                color: #f8fafc;
+                border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 8px;
             }
             QLineEdit:focus, QTextEdit:focus, QDateEdit:focus, QComboBox:focus, QSpinBox:focus {
-                border: 1px solid #38bdf8;
+                border: 1px solid #f97316;
             }
             QPushButton {
-                background-color: #1e293b;
+                background-color: #161e2e;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                border-radius: 10px;
+                border: 1px solid #27354a;
+                border-radius: 8px;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 9px 12px;
@@ -871,24 +886,39 @@ class ChamSocKhachHangVaMarketingWindow(QWidget):
             QPushButton:hover {
                 background-color: #0ea5e9;
                 border: 1px solid #38bdf8;
-                color: #f8fafc;
+                color: #ffffff;
+            }
+            QPushButton#btn_them_voucher {
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+            }
+            QPushButton#btn_them_voucher:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
             }
             QCheckBox {
-                color: #dbeafe;
+                color: #e2e8f0;
             }
             QTableWidget {
-                background-color: #0f172a;
+                background-color: #0c101a;
+                alternate-background-color: #121824;
                 color: #e2e8f0;
-                border: 1px solid #334155;
-                gridline-color: #1f2937;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
                 selection-background-color: #0ea5e9;
+                selection-color: #ffffff;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
             }
             QHeaderView::section {
-                background-color: #1e293b;
-                color: #bae6fd;
+                background-color: #161e2e;
+                color: #0ea5e9;
                 border: 0px;
                 padding: 8px;
                 font-weight: 700;
+                border-bottom: 2px solid #222e44;
             }
         """)
 

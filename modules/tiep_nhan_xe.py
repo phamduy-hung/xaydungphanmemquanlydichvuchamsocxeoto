@@ -64,6 +64,7 @@ class TiepNhanXeWidget(QWidget):
         self.txt_search.setPlaceholderText("Tìm khách hàng / SĐT...")
         self.txt_search.textChanged.connect(self._on_search_text_changed)
         self.btn_clear_search = QPushButton("Xóa lọc")
+        self.btn_clear_search.setObjectName("btn_clear_search")
         self.btn_clear_search.clicked.connect(lambda: self.txt_search.setText(""))
         search_row.addWidget(self.txt_search)
         search_row.addWidget(self.btn_clear_search)
@@ -96,9 +97,11 @@ class TiepNhanXeWidget(QWidget):
             self.cmb_technician.lineEdit().setPlaceholderText("Chọn KTV")
         self._reload_technician_combo()
         self.btn_auto_tech = QPushButton("Tự phân công KTV")
+        self.btn_auto_tech.setObjectName("btn_auto_tech")
         self.btn_auto_tech.setCheckable(True)
         self.btn_auto_tech.clicked.connect(self._auto_assign_technician_for_input)
         self.btn_add = QPushButton("Tạo lệnh")
+        self.btn_add.setObjectName("btnIntakeAdd")
         self.btn_add.setCheckable(True)
         self.btn_add.clicked.connect(self.create_manual_order)
         form.addWidget(self.txt_customer)
@@ -158,21 +161,71 @@ class TiepNhanXeWidget(QWidget):
     def _apply_style(self):
         self.setStyleSheet(
             """
-            QWidget { background: transparent; color: #dbeafe; }
-            QLabel#orderTitle { color: #f8fafc; font-size: 18px; font-weight: 800; border: none; }
-            QLineEdit { background:#0f172a; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:6px; }
-            QComboBox { background:#0f172a; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:6px; }
+            QWidget { background: transparent; color: #e2e8f0; font-family: "Segoe UI", "Inter"; }
+            QLabel#orderTitle { color: #f8fafc; font-size: 20px; font-weight: 800; border: none; padding-bottom: 5px; }
+            QLineEdit { background:#0c101a; color:#f8fafc; border:1px solid #27354a; border-radius:8px; padding:7px 10px; }
+            QLineEdit:focus { border:1px solid #0ea5e9; }
+            QComboBox { background:#0c101a; color:#f8fafc; border:1px solid #27354a; border-radius:8px; padding:6px 10px; }
+            QComboBox:focus { border:1px solid #0ea5e9; }
             QComboBox QAbstractItemView {
-                background:#0f172a;
-                color:#e2e8f0;
-                border:1px solid #334155;
+                background:#0c101a;
+                color:#f8fafc;
+                border:1px solid #27354a;
                 selection-background-color:#0ea5e9;
                 selection-color:#f8fafc;
             }
-            QPushButton { background:#1e293b; color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:8px; }
-            QPushButton:checked { background:#0ea5e9; color:#f8fafc; border:1px solid #38bdf8; }
-            QTableWidget { background:#0f172a; color:#e2e8f0; border:1px solid #334155; gridline-color:#1f2937; }
-            QHeaderView::section { background:#1e293b; color:#bae6fd; border:0; padding:7px; font-weight:700; }
+            QPushButton {
+                background-color: #161e2e;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #0ea5e9;
+                border: 1px solid #38bdf8;
+                color: #ffffff;
+            }
+            QPushButton#btnIntakeAdd {
+                background-color: #f97316;
+                color: #ffffff;
+                border: 1px solid #ff7a22;
+            }
+            QPushButton#btnIntakeAdd:hover {
+                background-color: #ea580c;
+                border: 1px solid #f97316;
+            }
+            QPushButton:checked {
+                background-color: #0ea5e9;
+                color: #ffffff;
+                border: 1px solid #38bdf8;
+            }
+            QPushButton#btnIntakeAdd:checked {
+                background-color: #10b981;
+                border: 1px solid #34d399;
+            }
+            QTableWidget {
+                background-color: #0c101a;
+                alternate-background-color: #121824;
+                color: #e2e8f0;
+                border: 1px solid #222e44;
+                gridline-color: #1b2336;
+                selection-background-color: #0ea5e9;
+                selection-color: #f8fafc;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
+            QHeaderView::section {
+                background-color: #161e2e;
+                color: #0ea5e9;
+                border: 0px;
+                padding: 8px;
+                font-weight: 700;
+                border-bottom: 2px solid #222e44;
+            }
             """
         )
 
@@ -530,6 +583,21 @@ class TiepNhanXeWidget(QWidget):
                 pass
         plate = (self.txt_plate.text() or "").strip()
         car_model = (self.txt_car_model.text() or "").strip()
+
+        # Validate SĐT nếu có điền
+        if phone:
+            clean_sdt = re.sub(r"[\s\-]", "", phone)
+            if not re.match(r"^(0|84)[35789]\d{8}$", clean_sdt):
+                QMessageBox.warning(self, "Sai định dạng", "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 hoặc 84 và có 10 chữ số).")
+                return
+
+        # Validate Biển số nếu có điền
+        if plate:
+            clean_plate = re.sub(r"[\s\-.]", "", plate)
+            if not re.match(r"^[a-zA-Z0-9]{4,15}$", clean_plate):
+                QMessageBox.warning(self, "Sai định dạng", "Biển số xe không hợp lệ (chỉ gồm chữ và số, từ 4-15 ký tự).")
+                return
+
         service = (self.cmb_service.currentText() or "").strip()
         services = self._parse_service_formula(service) if service else []
         services = [x for x in self._expand_services(services) if str(x or "").strip()]
