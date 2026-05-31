@@ -2,13 +2,13 @@ from datetime import date, timedelta
 import math
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                            QFrame, QPushButton)
+                            QFrame, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont
 from ui.compiled.ui_dashboard import Ui_Form as Ui_Form_Dashboard
 
-from database.connection import ensure_mysql_ready
-from database.models import fetch_dashboard_snapshot
+from database.connection import ensure_mysql_ready, fetch_all
+from database.models import fetch_dashboard_snapshot, get_low_stock_products
 from utils.animated_stack import HoverCardFrame
 
 
@@ -206,6 +206,24 @@ class DashboardWidget(QWidget):
         quick_lay.addStretch()
         self.ui.layout_quick_charts.addLayout(quick_lay)
 
+        # Title for bottom section
+        self.lbl_bottom_title = QLabel("Cảnh báo & Hoạt động gần đây")
+        self.lbl_bottom_title.setObjectName("dashboardSubTitle")
+        self.ui.main_layout.insertWidget(6, self.lbl_bottom_title)
+
+        # Bottom layout
+        bottom_lay = QHBoxLayout()
+        bottom_lay.setSpacing(16)
+        
+        # Recent Orders Card
+        bottom_lay.addWidget(self._make_recent_orders_card())
+        
+        # Inventory alerts card
+        bottom_lay.addWidget(self._make_low_stock_card())
+        
+        bottom_lay.addStretch()
+        self.ui.main_layout.insertLayout(7, bottom_lay)
+
         self._apply_dark_style()
         self.refresh_data()
 
@@ -231,6 +249,10 @@ class DashboardWidget(QWidget):
             if self._pie_chart:
                 self._pie_chart.set_segments([])
             self._rebuild_pie_legend(0, 0, 0, 0, 0)
+            if hasattr(self, "tbl_recent_orders"):
+                self.tbl_recent_orders.setRowCount(0)
+            if hasattr(self, "tbl_low_stock"):
+                self.tbl_low_stock.setRowCount(0)
             if self._bar_desc:
                 self._bar_desc.setWordWrap(True)
                 self._bar_desc.setText(
@@ -288,6 +310,92 @@ class DashboardWidget(QWidget):
         if self._pie_chart:
             self._pie_chart.set_segments(seg_donut)
         self._rebuild_pie_legend(pie_new, pie_run, pie_end, pie_cancel, pie_other)
+
+        # Tải Lệnh dịch vụ gần đây
+        try:
+            recent_orders = fetch_all("""
+                SELECT order_no, customer_name, customer_phone, plate, status
+                FROM service_orders
+                ORDER BY id DESC
+                LIMIT 5
+            """)
+            self.tbl_recent_orders.setRowCount(0)
+            if recent_orders:
+                for row_idx, ord_dict in enumerate(recent_orders):
+                    self.tbl_recent_orders.insertRow(row_idx)
+                    
+                    st = str(ord_dict.get("status") or "").upper()
+                    st_vi = st
+                    if st == "NEW_WEB": st_vi = "Lịch Web Mới"
+                    elif st == "CHECKED_IN": st_vi = "Đã Tiếp Nhận"
+                    elif st == "QUOTED": st_vi = "Đã Báo Giá"
+                    elif st == "APPROVED": st_vi = "Đã Duyệt"
+                    elif st == "IN_SERVICE": st_vi = "Đang Làm"
+                    elif st == "WAITING_PARTS": st_vi = "Chờ Vật Tư"
+                    elif st == "DONE": st_vi = "Hoàn Tất"
+                    elif st == "INVOICED": st_vi = "Đã Xuất HĐ"
+                    elif st == "PAID": st_vi = "Đã Thanh Toán"
+                    elif st == "CANCELLED": st_vi = "Đã Hủy"
+
+                    item_no = QTableWidgetItem(str(ord_dict.get("order_no") or "-"))
+                    item_no.setFlags(item_no.flags() & ~Qt.ItemIsEditable)
+                    
+                    item_name = QTableWidgetItem(str(ord_dict.get("customer_name") or "-"))
+                    item_name.setFlags(item_name.flags() & ~Qt.ItemIsEditable)
+                    
+                    item_plate = QTableWidgetItem(str(ord_dict.get("plate") or "-"))
+                    item_plate.setFlags(item_plate.flags() & ~Qt.ItemIsEditable)
+                    
+                    item_status = QTableWidgetItem(st_vi)
+                    item_status.setFlags(item_status.flags() & ~Qt.ItemIsEditable)
+                    
+                    self.tbl_recent_orders.setItem(row_idx, 0, item_no)
+                    self.tbl_recent_orders.setItem(row_idx, 1, item_name)
+                    self.tbl_recent_orders.setItem(row_idx, 2, item_plate)
+                    self.tbl_recent_orders.setItem(row_idx, 3, item_status)
+        except Exception as e:
+            print(f"Error loading recent orders for dashboard: {e}")
+
+        # Tải Vật tư cảnh báo tồn kho
+        try:
+            low_stock = get_low_stock_products()
+            self.tbl_low_stock.setRowCount(0)
+            if low_stock:
+                for row_idx, prod_dict in enumerate(low_stock[:5]):
+                    self.tbl_low_stock.insertRow(row_idx)
+                    
+                    item_name = QTableWidgetItem(str(prod_dict.get("name") or "-"))
+                    item_name.setFlags(item_name.flags() & ~Qt.ItemIsEditable)
+                    
+                    item_curr = QTableWidgetItem(f"{prod_dict.get('current_stock') or 0}")
+                    item_curr.setFlags(item_curr.flags() & ~Qt.ItemIsEditable)
+                    item_curr.setTextAlignment(Qt.AlignCenter)
+                    
+                    item_min = QTableWidgetItem(f"{prod_dict.get('min_stock') or 0}")
+                    item_min.setFlags(item_min.flags() & ~Qt.ItemIsEditable)
+                    item_min.setTextAlignment(Qt.AlignCenter)
+                    
+                    self.tbl_low_stock.setItem(row_idx, 0, item_name)
+                    self.tbl_low_stock.setItem(row_idx, 1, item_curr)
+                    self.tbl_low_stock.setItem(row_idx, 2, item_min)
+            else:
+                self.tbl_low_stock.insertRow(0)
+                item_msg = QTableWidgetItem("Tất cả vật tư đều đủ tồn kho")
+                item_msg.setFlags(item_msg.flags() & ~Qt.ItemIsEditable)
+                
+                item_dash1 = QTableWidgetItem("-")
+                item_dash1.setFlags(item_dash1.flags() & ~Qt.ItemIsEditable)
+                item_dash1.setTextAlignment(Qt.AlignCenter)
+                
+                item_dash2 = QTableWidgetItem("-")
+                item_dash2.setFlags(item_dash2.flags() & ~Qt.ItemIsEditable)
+                item_dash2.setTextAlignment(Qt.AlignCenter)
+                
+                self.tbl_low_stock.setItem(0, 0, item_msg)
+                self.tbl_low_stock.setItem(0, 1, item_dash1)
+                self.tbl_low_stock.setItem(0, 2, item_dash2)
+        except Exception as e:
+            print(f"Error loading low stock alerts for dashboard: {e}")
 
     @staticmethod
     def _fmt_vnd(n):
@@ -425,6 +533,94 @@ class DashboardWidget(QWidget):
         lay.addWidget(legend_container)
         self._pie_legend_lay = legend_lay
 
+        return card
+
+    def _make_recent_orders_card(self):
+        card = HoverCardFrame()
+        card.setObjectName("quickChartCard")
+        card.setMinimumWidth(480)
+        card.setMinimumHeight(240)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(8)
+
+        title = QLabel("5 LỆNH DỊCH VỤ GẦN ĐÂY")
+        title.setObjectName("quickChartTitle")
+        lay.addWidget(title)
+
+        self.tbl_recent_orders = QTableWidget()
+        self.tbl_recent_orders.setColumnCount(4)
+        self.tbl_recent_orders.setHorizontalHeaderLabels(["Mã lệnh", "Khách hàng", "Biển số", "Trạng thái"])
+        self.tbl_recent_orders.verticalHeader().setVisible(False)
+        self.tbl_recent_orders.setAlternatingRowColors(True)
+        self.tbl_recent_orders.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tbl_recent_orders.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tbl_recent_orders.setFixedHeight(150)
+        self.tbl_recent_orders.setStyleSheet("""
+            QTableWidget {
+                background-color: #0c101a;
+                alternate-background-color: #121824;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
+                border-radius: 6px;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
+            QHeaderView::section {
+                background-color: #161e2e;
+                color: #0ea5e9;
+                border: 0;
+                padding: 4px;
+                font-weight: bold;
+            }
+        """)
+        lay.addWidget(self.tbl_recent_orders)
+        return card
+
+    def _make_low_stock_card(self):
+        card = HoverCardFrame()
+        card.setObjectName("quickChartCard")
+        card.setMinimumWidth(360)
+        card.setMinimumHeight(240)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(8)
+
+        title = QLabel("CẢNH BÁO TỒN KHO")
+        title.setObjectName("quickChartTitle")
+        lay.addWidget(title)
+
+        self.tbl_low_stock = QTableWidget()
+        self.tbl_low_stock.setColumnCount(3)
+        self.tbl_low_stock.setHorizontalHeaderLabels(["Tên vật tư", "Tồn kho", "Mức min"])
+        self.tbl_low_stock.verticalHeader().setVisible(False)
+        self.tbl_low_stock.setAlternatingRowColors(True)
+        self.tbl_low_stock.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tbl_low_stock.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tbl_low_stock.setFixedHeight(150)
+        self.tbl_low_stock.setStyleSheet("""
+            QTableWidget {
+                background-color: #0c101a;
+                alternate-background-color: #121824;
+                color: #e2e8f0;
+                border: 1px solid #27354a;
+                gridline-color: #1b2336;
+                border-radius: 6px;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(14, 165, 233, 0.15);
+            }
+            QHeaderView::section {
+                background-color: #161e2e;
+                color: #f97316;
+                border: 0;
+                padding: 4px;
+                font-weight: bold;
+            }
+        """)
+        lay.addWidget(self.tbl_low_stock)
         return card
 
     def _apply_dark_style(self):
