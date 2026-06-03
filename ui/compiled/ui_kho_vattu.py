@@ -98,7 +98,7 @@ class KhoVatTuUI(QWidget):
                 data = self.ql_vattu.danh_sach()
 
             # Check if data is valid
-            if not data or not isinstance(data, list):
+            if data is None or not isinstance(data, list):
                 QMessageBox.warning(self, "Lỗi", "Không thể tải dữ liệu sản phẩm từ database!")
                 return
 

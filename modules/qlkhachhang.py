@@ -100,6 +100,13 @@ class AddCustomerDialog(QDialog):
         self._setup_signals()
 
     def _apply_input_text_dark_style(self):
+        self.ui.txt_name.setStyleSheet("")
+        self.ui.txt_phone.setStyleSheet("")
+        self.ui.txt_hangxe.setStyleSheet("")
+        self.ui.txt_plate.setStyleSheet("")
+        self.ui.txt_note.setStyleSheet("")
+        self.ui.btn_save.setStyleSheet("")
+        self.ui.btn_cancel.setStyleSheet("")
         self.setStyleSheet("""
             QDialog {
                 background-color: #090d16;
@@ -210,6 +217,14 @@ class EditCustomerDialog(QDialog):
         self._setup_signals()
 
     def _apply_input_text_dark_style(self):
+        self.ui.txt_name.setStyleSheet("")
+        self.ui.txt_phone.setStyleSheet("")
+        self.ui.txt_hangxe.setStyleSheet("")
+        self.ui.txt_plate.setStyleSheet("")
+        self.ui.comboBox.setStyleSheet("")
+        self.ui.txt_note.setStyleSheet("")
+        self.ui.btn_save.setStyleSheet("")
+        self.ui.btn_cancel.setStyleSheet("")
         self.setStyleSheet("""
             QDialog {
                 background-color: #090d16;
@@ -526,6 +541,10 @@ class CustomerManagerWidget(QWidget):
             }
             QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QTextEdit:focus {
                 border: 1px solid #f97316;
+            }
+            QLabel#label_2, QLabel#label_3 {
+                background-color: transparent;
+                color: #f8fafc;
             }
             QLabel#lbl_from, QLabel#lbl_to {
                 background-color: transparent;

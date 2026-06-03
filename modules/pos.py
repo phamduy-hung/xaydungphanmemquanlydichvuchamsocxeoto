@@ -47,9 +47,38 @@ class InvoiceDialog(QDialog):
             f"Mã hóa đơn: {self.invoice_data['invoice_no']}    |    "
             f"Thời gian: {self.invoice_data['created_at']}"
         )
+        
+        # Query KTV name if linked to a service order
+        ktv_text = ""
+        order_no = self.invoice_data.get("linked_order_no", "") or self.invoice_data.get("order_id", "")
+        if not order_no and self.invoice_data.get("customer_phone"):
+            try:
+                from database.connection import fetch_one
+                clean_phone = re.sub(r"\D", "", str(self.invoice_data.get("customer_phone")))
+                ord_row = fetch_one(
+                    "SELECT order_no, assigned_to FROM service_orders WHERE customer_phone LIKE %s ORDER BY id DESC LIMIT 1",
+                    (f"%{clean_phone}%",)
+                )
+                if ord_row:
+                    order_no = ord_row.get("order_no", "")
+                    ktv_text = str(ord_row.get("assigned_to") or "").strip()
+            except Exception:
+                pass
+        
+        if order_no and not ktv_text:
+            try:
+                from database.connection import fetch_one
+                ord_row = fetch_one("SELECT assigned_to FROM service_orders WHERE order_no=%s", (order_no,))
+                if ord_row:
+                    ktv_text = str(ord_row.get("assigned_to") or "").strip()
+            except Exception:
+                pass
+                
+        ktv_suffix = f"    |    KTV: {ktv_text}" if ktv_text else ""
+
         self.ui.lbl_bill_customer.setText(
-            f"Khách hàng: {self.invoice_data['customer_name']}    |    "
-            f"SĐT: {self.invoice_data['customer_phone']}"
+            f"Khách hàng: {self.invoice_data.get('customer_name', 'Khách lẻ')}    |    "
+            f"SĐT: {self.invoice_data.get('customer_phone', '-')}{ktv_suffix}"
         )
 
         table = self.ui.tbl_bill_items
@@ -242,13 +271,6 @@ class InvoiceDialog(QDialog):
 
 
 class POSWidget(QWidget):
-    DISCOUNT_CODES = {
-        "GIAM5": ("percent", 5),
-        "GIAM10": ("percent", 10),
-        "GIAM50K": ("fixed", 50000),
-        "VIP50K": ("fixed", 50000),
-    }
-
     def __init__(self, current_role="Quản lý", current_user="system"):
         super().__init__()
         self.current_role = current_role
@@ -259,6 +281,7 @@ class POSWidget(QWidget):
         self._updating_cart = False
         self._applied_discount_code = ""
         self._applied_discount_value = ("none", 0)
+        self.discount_codes = {}
         self.crm_widget = None
         self.customer_tier = "Đồng"
         self.customer_discount_percent = 0.0
@@ -326,6 +349,23 @@ class POSWidget(QWidget):
         self.txt_customer = self.ui.txt_customer
         self.txt_customer_phone = self.ui.txt_customer_phone
 
+        # Thêm QLineEdit hiển thị KTV phụ trách (chỉ đọc)
+        from PyQt5.QtWidgets import QLineEdit
+        self.txt_technician = QLineEdit(self.ui.customerFrame)
+        self.txt_technician.setPlaceholderText("KTV phụ trách: Chưa phân công")
+        self.txt_technician.setReadOnly(True)
+        self.txt_technician.setStyleSheet("""
+            QLineEdit {
+                background-color: #0c101a;
+                color: #94a3b8;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+        """)
+        self.ui.customerLayout.addWidget(self.txt_technician)
+
         self.lbl_avail_title.setObjectName("posTitle")
         self.lbl_avail_title.setProperty("plainTitle", "true")
         self.lbl_invoice_title.setObjectName("posTitle")
@@ -368,10 +408,7 @@ class POSWidget(QWidget):
         self.shortcut_remove_cart = QShortcut(QKeySequence.Delete, self.tbl_cart)
         self.shortcut_remove_cart.activated.connect(self._remove_selected_cart_item)
         self.cmb_discount.setEditable(False)
-        self.cmb_discount.clear()
-        self.cmb_discount.addItems(
-            ["Chọn mã giảm giá...", "GIAM5 (5%)", "GIAM10 (10%)", "GIAM50K (50.000đ)", "VIP50K (50.000đ)", "Tự nhập"]
-        )
+        self.refresh_vouchers()
         self.cmb_discount.currentIndexChanged.connect(self._on_discount_combo_changed)
         self.btn_apply_discount.clicked.connect(self._apply_discount_code)
         self.btn_pay.clicked.connect(self._show_payment_invoice)
@@ -400,6 +437,8 @@ class POSWidget(QWidget):
         self._customer_name_was_entered = False
         self.customer_tier = "Đồng"
         self.customer_discount_percent = 0.0
+        if hasattr(self, "txt_technician"):
+            self.txt_technician.setText("KTV phụ trách: Chưa phân công")
         self._render_cart()
 
     def _fetch_customer_loyalty_info(self):
@@ -484,6 +523,8 @@ class POSWidget(QWidget):
         phone_digits = self._digits_only(self.txt_customer_phone.text())
         name = (self.txt_customer.text() or "").strip()
         if len(phone_digits) < 8:
+            if hasattr(self, "txt_technician"):
+                self.txt_technician.setText("KTV phụ trách: Chưa phân công")
             return
         if self.cart_items and self._last_intake_phone == phone_digits:
             return
@@ -491,9 +532,18 @@ class POSWidget(QWidget):
         try:
             order = find_latest_billable_order_for_pos(phone_digits, name)
         except Exception:
+            if hasattr(self, "txt_technician"):
+                self.txt_technician.setText("KTV phụ trách: Chưa phân công")
             return
         if not order:
+            if hasattr(self, "txt_technician"):
+                self.txt_technician.setText("KTV phụ trách: Chưa phân công")
             return
+        
+        # Hiển thị tên KTV phụ trách
+        ktv = str(order.get("assigned_to", "")).strip()
+        if hasattr(self, "txt_technician"):
+            self.txt_technician.setText(f"KTV phụ trách: {ktv}" if ktv else "KTV phụ trách: Chưa phân công")
         new_cart = {}
         for svc in order.get("service_items") or []:
             sname = str(svc.get("service_name", "")).strip()
@@ -545,6 +595,76 @@ class POSWidget(QWidget):
         self._rebuild_catalog_index()
         self._render_catalog(self.catalog_items)
         self._filter_catalog(self.txt_search_item.text() if self.txt_search_item else "")
+
+    def refresh_vouchers(self):
+        """Tải lại danh sách voucher từ database và cập nhật ComboBox."""
+        from database.connection import fetch_all
+        from datetime import date
+
+        self.discount_codes = {}
+        try:
+            ensure_mysql_ready()
+            rows = fetch_all(
+                """
+                SELECT voucher_code, campaign_name, voucher_type, voucher_value, start_date, end_date
+                FROM customer_care_vouchers
+                """
+            )
+            t = date.today()
+            for r in rows:
+                code = str(r.get("voucher_code", "")).strip().upper()
+                if not code:
+                    continue
+                bd = r.get("start_date")
+                kt = r.get("end_date")
+                is_active = True
+                if bd and kt:
+                    if isinstance(bd, str):
+                        try:
+                            bd = datetime.strptime(bd[:10], "%Y-%m-%d").date()
+                        except ValueError:
+                            bd = None
+                    elif isinstance(bd, datetime):
+                        bd = bd.date()
+                    elif isinstance(bd, date):
+                        pass
+
+                    if isinstance(kt, str):
+                        try:
+                            kt = datetime.strptime(kt[:10], "%Y-%m-%d").date()
+                        except ValueError:
+                            kt = None
+                    elif isinstance(kt, datetime):
+                        kt = kt.date()
+                    elif isinstance(kt, date):
+                        pass
+
+                    if bd and kt:
+                        is_active = (bd <= t <= kt)
+                
+                if is_active:
+                    v_type = r.get("voucher_type", "percent")
+                    if v_type == "amount":
+                        v_type = "fixed"
+                    v_val = int(float(r.get("voucher_value") or 0))
+                    self.discount_codes[code] = (v_type, v_val)
+        except Exception as e:
+            print("Error loading vouchers in POS:", e)
+            
+        self.cmb_discount.blockSignals(True)
+        self.cmb_discount.clear()
+        
+        items = ["Chọn mã giảm giá..."]
+        for code, (v_type, v_val) in self.discount_codes.items():
+            if v_type == "percent":
+                lbl = f"{code} ({int(v_val)}%)"
+            else:
+                lbl = f"{code} ({v_val:,}".replace(",", ".") + "đ)"
+            items.append(lbl)
+            
+        items.append("Tự nhập")
+        self.cmb_discount.addItems(items)
+        self.cmb_discount.blockSignals(False)
 
     def _on_item_double_clicked(self, item):
         self._add_item_by_row(item.row())
@@ -639,7 +759,7 @@ class POSWidget(QWidget):
             self._recalculate_totals()
             return
 
-        if code not in self.DISCOUNT_CODES:
+        if code not in self.discount_codes:
             custom = self._parse_custom_discount(code)
             if not custom:
                 self._applied_discount_code = ""
@@ -658,7 +778,7 @@ class POSWidget(QWidget):
             return
 
         self._applied_discount_code = code
-        self._applied_discount_value = self.DISCOUNT_CODES[code]
+        self._applied_discount_value = self.discount_codes[code]
         t, v = self._applied_discount_value
         if t == "percent":
             self.lbl_discount_note.setText(f"Đã áp mã {code}: giảm {v}%")
@@ -668,17 +788,19 @@ class POSWidget(QWidget):
 
     def _on_discount_combo_changed(self):
         current = (self.cmb_discount.currentText() or "").strip()
-        if current.startswith("GIAM5"):
-            self.txt_discount_code.setText("GIAM5")
-        elif current.startswith("GIAM10"):
-            self.txt_discount_code.setText("GIAM10")
-        elif current.startswith("GIAM50K"):
-            self.txt_discount_code.setText("GIAM50K")
-        elif current.startswith("VIP50K"):
-            self.txt_discount_code.setText("VIP50K")
-        elif current == "Tự nhập":
+        if current == "Chọn mã giảm giá...":
+            self.txt_discount_code.clear()
+            return
+        if current == "Tự nhập":
             self.txt_discount_code.clear()
             self.txt_discount_code.setFocus()
+            return
+        
+        parts = current.split(" ")
+        if parts:
+            code = parts[0].strip().upper()
+            if code in self.discount_codes:
+                self.txt_discount_code.setText(code)
 
     def _parse_custom_discount(self, raw_code):
         raw = (raw_code or "").strip().lower().replace(" ", "")
@@ -828,6 +950,8 @@ class POSWidget(QWidget):
             self.txt_customer_phone.clear()
             self.txt_customer.blockSignals(False)
             self.txt_customer_phone.blockSignals(False)
+            if hasattr(self, "txt_technician"):
+                self.txt_technician.setText("KTV phụ trách: Chưa phân công")
             
             self.customer_tier = "Đồng"
             self.customer_discount_percent = 0.0

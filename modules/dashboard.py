@@ -10,6 +10,8 @@ from ui.compiled.ui_dashboard import Ui_Form as Ui_Form_Dashboard
 from database.connection import ensure_mysql_ready, fetch_all
 from database.models import fetch_dashboard_snapshot, get_low_stock_products
 from utils.animated_stack import HoverCardFrame
+from modules.service_orders import count_occupied_pipeline_slots_for_day, MAX_PIPELINE_SLOTS_PER_DAY
+
 
 
 class SimpleBarChartWidget(QWidget):
@@ -155,6 +157,7 @@ class DashboardWidget(QWidget):
     go_to_kho = pyqtSignal()
     go_to_cskh = pyqtSignal()
     go_to_tiepnhan = pyqtSignal()
+    go_to_crm = pyqtSignal()
 
     def __init__(self, auth_user=None):
         super().__init__()
@@ -245,16 +248,27 @@ class DashboardWidget(QWidget):
         actions_lay = self.ui.layout_action_buttons
 
         btn1 = self._make_action_btn("Tạo Hóa Đơn Mới", "#10b981")
-        btn2 = self._make_action_btn("Nhập Vật Tư", "#0ea5e9")
+        
+        role = self.auth_user.get("role", "Quản lý")
+        if role == "Lễ tân":
+            btn2 = self._make_action_btn("Khách hàng (CRM)", "#8b5cf6")
+            btn2.clicked.connect(self.go_to_crm.emit)
+        else:
+            btn2 = self._make_action_btn("Nhập Vật Tư", "#0ea5e9")
+            btn2.clicked.connect(self.go_to_kho.emit)
+            
         btn3 = self._make_action_btn("Tiếp Nhận Xe", "#6366f1")
         btn1.clicked.connect(self.go_to_pos.emit)
-        btn2.clicked.connect(self.go_to_kho.emit)
         btn3.clicked.connect(self.go_to_tiepnhan.emit)
 
         actions_lay.addWidget(btn1)
         actions_lay.addWidget(btn2)
         actions_lay.addWidget(btn3)
         actions_lay.addStretch()
+
+        self.lbl_slots = QLabel("Còn trống: -- chỗ")
+        self.lbl_slots.setObjectName("dashboardSlotsLabel")
+        actions_lay.addWidget(self.lbl_slots)
 
         quick_lay = QHBoxLayout()
         quick_lay.setSpacing(16)
@@ -292,6 +306,47 @@ class DashboardWidget(QWidget):
 
     def refresh_data(self):
         """Tải KPI và biểu đồ từ MySQL (hóa đơn paid, lệnh dịch vụ, web_bookings, customers)."""
+        # Cập nhật số chỗ nhận xe còn trống trong ngày
+        if hasattr(self, "lbl_slots"):
+            try:
+                from datetime import date
+                today = date.today()
+                occupied = count_occupied_pipeline_slots_for_day(today)
+                slots_left = max(0, MAX_PIPELINE_SLOTS_PER_DAY - occupied)
+                self.lbl_slots.setText(f"Còn trống: {slots_left} chỗ" if slots_left > 0 else "Hết chỗ nhận xe")
+                if slots_left >= 5:
+                    bg = "rgba(16, 185, 129, 0.15)"
+                    fg = "#34d399"
+                    border = "1px solid rgba(16, 185, 129, 0.3)"
+                elif slots_left >= 2:
+                    bg = "rgba(245, 158, 11, 0.15)"
+                    fg = "#fbbf24"
+                    border = "1px solid rgba(245, 158, 11, 0.3)"
+                else:
+                    bg = "rgba(239, 68, 68, 0.15)"
+                    fg = "#f87171"
+                    border = "1px solid rgba(239, 68, 68, 0.3)"
+                self.lbl_slots.setStyleSheet(f"""
+                    background-color: {bg};
+                    color: {fg};
+                    border: {border};
+                    border-radius: 8px;
+                    font-weight: 700;
+                    font-size: 13px;
+                    padding: 9px 16px;
+                """)
+            except Exception:
+                self.lbl_slots.setText("Còn trống: -- chỗ")
+                self.lbl_slots.setStyleSheet("""
+                    background-color: rgba(100, 116, 139, 0.15);
+                    color: #94a3b8;
+                    border: 1px solid rgba(100, 116, 139, 0.3);
+                    border-radius: 8px;
+                    font-weight: 700;
+                    font-size: 13px;
+                    padding: 9px 16px;
+                """)
+
         # Cập nhật thời gian thực trên Header
         try:
             from datetime import datetime

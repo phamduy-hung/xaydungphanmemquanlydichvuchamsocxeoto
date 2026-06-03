@@ -441,6 +441,7 @@ class MainWindow(QMainWindow):
                 self.dashboard_mod.go_to_kho.connect(self.show_kho_vattu)
                 self.dashboard_mod.go_to_cskh.connect(self.show_chamsoc_kh)
                 self.dashboard_mod.go_to_tiepnhan.connect(self.show_tiep_nhan_xe)
+                self.dashboard_mod.go_to_crm.connect(self.show_crm)
             except Exception:
                 pass
             self.dash_lay.addWidget(self.dashboard_mod)
@@ -845,6 +846,11 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.page_pos)
             if self.pos_mod is None:
                 self._ensure_deferred("pos_mod", self._ensure_pos)
+            else:
+                try:
+                    self.pos_mod.refresh_vouchers()
+                except Exception:
+                    pass
         else:
             self.show_placeholder("Không tìm thấy module BÁN HÀNG & POS")
 

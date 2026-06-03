@@ -489,32 +489,24 @@ class QuanLyNhanVienWidget(QWidget):
                 )
 
     def _link_demo_accounts(self):
-        by_name = {e["name"]: e for e in self.employees}
         self.accounts = []
-        thu = by_name.get("Pham Anh Thu")
-        ngoc = by_name.get("Tran Bao Ngoc")
-        if thu:
-            self.accounts.append(
-                {
-                    "username": "quanly.thu",
-                    "employee_id": thu["id"],
-                    "role": "Quản lý",
-                    "locked": False,
-                    "password": "123456",
-                    "last_login": "20/04/2026 08:12",
-                }
-            )
-        if ngoc:
-            self.accounts.append(
-                {
-                    "username": "letan.ngoc",
-                    "employee_id": ngoc["id"],
-                    "role": "Lễ tân",
-                    "locked": False,
-                    "password": "123456",
-                    "last_login": "20/04/2026 07:45",
-                }
-            )
+        try:
+            from database.connection import fetch_all
+            rows = fetch_all("SELECT username, password_plain AS password, role, is_active, employee_id FROM users")
+            for r in rows:
+                if r.get("employee_id") is not None:
+                    self.accounts.append(
+                        {
+                            "username": r["username"],
+                            "employee_id": int(r["employee_id"]),
+                            "role": r["role"],
+                            "locked": not bool(r["is_active"]),
+                            "password": r["password"],
+                            "last_login": "-",
+                        }
+                    )
+        except Exception as e:
+            print(f"Error loading accounts from database: {e}")
 
     def _append_employee(self, name, phone, role, join_date, status):
         try:
@@ -1065,12 +1057,12 @@ class QuanLyNhanVienWidget(QWidget):
             QMessageBox.warning(self, "Hoa hồng", "Không có dữ liệu để xuất.")
             return
 
-        default_name = f"bang_hoa_hong_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        default_name = f"bang_hoa_hong_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         save_path, selected_filter = QFileDialog.getSaveFileName(
             self,
             "Xuất bảng hoa hồng",
             default_name,
-            "Excel Files (*.xlsx);;CSV Files (*.csv)",
+            "CSV Files (*.csv)",
         )
         if not save_path:
             return
@@ -1079,23 +1071,8 @@ class QuanLyNhanVienWidget(QWidget):
 
         target_path = Path(save_path)
         try:
-            # Xuất CSV trực tiếp hoặc fallback khi thiếu openpyxl.
-            if target_path.suffix.lower() == ".csv" or "CSV" in selected_filter:
-                self._export_commission_to_csv(target_path, headers, rows)
-                QMessageBox.information(self, "Hoa hồng", f"Đã xuất CSV:\n{target_path}")
-                return
-
-            self._export_commission_to_xlsx(target_path, headers, rows, sheet_name="HoaHong")
-            QMessageBox.information(self, "Hoa hồng", f"Đã xuất Excel:\n{target_path}")
-        except ImportError:
-            fallback_path = target_path.with_suffix(".csv")
-            self._export_commission_to_csv(fallback_path, headers, rows)
-            QMessageBox.warning(
-                self,
-                "Thiếu thư viện openpyxl",
-                "Chưa cài openpyxl nên hệ thống đã tự xuất sang CSV.\n"
-                f"File: {fallback_path}",
-            )
+            self._export_commission_to_csv(target_path, headers, rows)
+            QMessageBox.information(self, "Hoa hồng", f"Đã xuất CSV:\n{target_path}")
         except Exception as e:
             QMessageBox.critical(self, "Lỗi xuất file", f"Không thể xuất bảng hoa hồng.\nChi tiết: {e}")
 
@@ -1241,42 +1218,60 @@ class QuanLyNhanVienWidget(QWidget):
             QMessageBox.warning(self, "Thiếu dữ liệu", "Vui lòng nhập tên đăng nhập và mật khẩu.")
             return
 
-        acc = self._account_by_username(username)
-        if acc:
-            acc.update({"employee_id": employee_id, "role": role, "password": password})
-        else:
-            self.accounts.append(
-                {
-                    "username": username,
-                    "employee_id": employee_id,
-                    "role": role,
-                    "locked": False,
-                    "password": password,
-                    "last_login": "-",
-                }
-            )
+        try:
+            from database.connection import execute, fetch_one
+            exists = fetch_one("SELECT id FROM users WHERE username = %s", (username,))
+            if exists:
+                execute(
+                    "UPDATE users SET password_plain = %s, role = %s, employee_id = %s WHERE username = %s",
+                    (password, role, employee_id, username)
+                )
+            else:
+                execute(
+                    "INSERT INTO users (username, password_plain, role, employee_id, is_active) VALUES (%s, %s, %s, %s, 1)",
+                    (username, password, role, employee_id)
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi DB", f"Không thể lưu tài khoản vào CSDL:\n{e}")
+            return
+
+        self._link_demo_accounts()
 
         # Đồng bộ vai trò từ RBAC sang hồ sơ nhân viên để tab Nhân viên & Phân ca cập nhật theo.
         emp = self._employee_by_id(employee_id)
         if emp and role in ("Quản lý", "Lễ tân"):
             emp["role"] = role
+            try:
+                from database.connection import execute
+                execute("UPDATE hr_employees SET role = %s WHERE id = %s", (role, employee_id))
+            except Exception as e:
+                print(f"Error syncing role to hr_employees: {e}")
 
         self.render_accounts_table()
         self.render_employee_table()
         self.render_shift_table()
         self._sync_rbac_form_from_account()
-        QMessageBox.information(self, "RBAC", "Đã tạo/cập nhật tài khoản.")
+        QMessageBox.information(self, "RBAC", "Đã tạo/cập nhật tài khoản vào cơ sở dữ liệu.")
 
     def reset_account_password(self):
         username = self.ui.txt_rbac_username.text().strip()
         if not username:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Nhập tên đăng nhập cần đặt lại mật khẩu.")
             return
-        acc = self._account_by_username(username)
-        if not acc:
-            QMessageBox.warning(self, "Không tìm thấy", "Không có tài khoản tương ứng.")
+        
+        try:
+            from database.connection import execute, fetch_one
+            exists = fetch_one("SELECT id FROM users WHERE username = %s", (username,))
+            if not exists:
+                QMessageBox.warning(self, "Không tìm thấy", "Không có tài khoản tương ứng trong CSDL.")
+                return
+            execute("UPDATE users SET password_plain = '123456' WHERE username = %s", (username,))
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi DB", f"Không thể đặt lại mật khẩu trong CSDL:\n{e}")
             return
-        acc["password"] = "123456"
+
+        self._link_demo_accounts()
+        self._sync_rbac_form_from_account()
         QMessageBox.information(self, "RBAC", "Đã đặt lại mật khẩu mặc định 123456.")
 
     def toggle_account_lock(self):
@@ -1284,13 +1279,23 @@ class QuanLyNhanVienWidget(QWidget):
         if not username:
             QMessageBox.warning(self, "Thiếu dữ liệu", "Nhập tên đăng nhập cần khóa/mở.")
             return
-        acc = self._account_by_username(username)
-        if not acc:
-            QMessageBox.warning(self, "Không tìm thấy", "Không có tài khoản tương ứng.")
+        
+        try:
+            from database.connection import execute, fetch_one
+            row = fetch_one("SELECT is_active FROM users WHERE username = %s", (username,))
+            if not row:
+                QMessageBox.warning(self, "Không tìm thấy", "Không có tài khoản tương ứng trong CSDL.")
+                return
+            new_active = 0 if row["is_active"] else 1
+            execute("UPDATE users SET is_active = %s WHERE username = %s", (new_active, username))
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi DB", f"Không thể cập nhật trạng thái khóa/mở tài khoản trong CSDL:\n{e}")
             return
-        acc["locked"] = not acc["locked"]
+
+        self._link_demo_accounts()
         self.render_accounts_table()
-        QMessageBox.information(self, "RBAC", "Đã cập nhật trạng thái tài khoản.")
+        self._sync_rbac_form_from_account()
+        QMessageBox.information(self, "RBAC", "Đã cập nhật trạng thái hoạt động của tài khoản.")
 
     def render_accounts_table(self):
         table = self.ui.tbl_accounts

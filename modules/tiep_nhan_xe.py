@@ -124,6 +124,7 @@ class TiepNhanXeWidget(QWidget):
         action = QHBoxLayout()
         self.btn_checkin = QPushButton("Nhận xe vào xưởng")
         self.btn_checkin.setObjectName("btn_checkin_order")
+        self.btn_checkin.setVisible(False)
         self.btn_quote = QPushButton("Đánh dấu Đã báo giá")
         self.btn_approve = QPushButton("Đánh dấu Đã duyệt")
         self.btn_done = QPushButton("Đánh dấu Hoàn tất")
@@ -142,7 +143,7 @@ class TiepNhanXeWidget(QWidget):
         self.btn_wait_parts.clicked.connect(self._request_parts_for_selected)
         self.btn_exported.clicked.connect(self._mark_parts_exported_selected)
         self.btn_cancel.clicked.connect(self._cancel_selected_order)
-        action.addWidget(self.btn_checkin)
+        # action.addWidget(self.btn_checkin)
         action.addWidget(self.btn_quote)
         action.addWidget(self.btn_approve)
         action.addWidget(self.btn_edit_services)
@@ -443,16 +444,15 @@ class TiepNhanXeWidget(QWidget):
         self._reload_technician_pool()
         current = self.cmb_technician.currentText().strip() if hasattr(self, "cmb_technician") else ""
         names = set(self.tech_pool)
-        source_orders = orders if orders is not None else list(self._orders_cache)
-        if not source_orders:
-            source_orders = list_orders()
-        try:
-            for o in source_orders:
-                n = str(o.get("assigned_to", "")).strip()
-                if n:
-                    names.add(n)
-        except Exception:
-            pass
+        if current:
+            names.add(current)
+        if hasattr(self, "_selected_order_id") and self._selected_order_id:
+            for o in (orders or self._orders_cache or []):
+                if str(o.get("order_no", "")) == self._selected_order_id:
+                    n = str(o.get("assigned_to", "")).strip()
+                    if n:
+                        names.add(n)
+                    break
         items = sorted(names)
         self.cmb_technician.clear()
         self.cmb_technician.addItem("")

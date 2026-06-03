@@ -31,7 +31,11 @@ class QuanLyVatTu:
             products = load_products()
             if not products:
                 return []
-            filtered = [p for p in products if keyword.lower() in p["name"].lower()]
+            filtered = [
+                p for p in products
+                if keyword.lower() in p["name"].lower()
+                or keyword.lower() in str(p.get("product_code") or "").lower()
+            ]
             return [{
                 "id": p["id"],
                 "ma": str(p.get("product_code") or "").strip() or f"VT{int(p['id']):03d}",

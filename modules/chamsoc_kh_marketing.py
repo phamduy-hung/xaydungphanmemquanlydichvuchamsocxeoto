@@ -203,6 +203,7 @@ class ChamSocMarketingStore:
     def save(self) -> None:
         ensure_mysql_ready()
         self._save_to_mysql()
+        self._load_from_mysql()
 
     def refresh_message_logs(self, limit: int = 500) -> None:
         """Reload notification logs from MySQL for live UI updates."""
@@ -523,30 +524,39 @@ def ghi_nhan_thanh_toan_tich_hop(ma_khach_hang: str, so_tien_vnd: int, ten_khach
     # Đồng bộ thông tin điểm và chi tiêu từ MySQL database trước khi cộng dồn
     db_spent = 0
     db_points = 0
+    db_id = None
     phone_val = str(sdt or ma_khach_hang or "").strip()
     try:
         from database.connection import fetch_one
         row_db = None
         if phone_val and phone_val != "-":
-            row_db = fetch_one("SELECT total_spent, points FROM customers WHERE phone=%s", (phone_val,))
+            row_db = fetch_one("SELECT id, total_spent, points FROM customers WHERE phone=%s", (phone_val,))
         if not row_db:
             try:
                 cid = int(str(ma_khach_hang).strip())
                 if cid > 0:
-                    row_db = fetch_one("SELECT total_spent, points FROM customers WHERE id=%s", (cid,))
+                    row_db = fetch_one("SELECT id, total_spent, points FROM customers WHERE id=%s", (cid,))
             except Exception:
                 pass
         if row_db:
+            db_id = str(row_db.get("id"))
             db_spent = int(float(row_db.get("total_spent") or 0))
             db_points = int(row_db.get("points") or 0)
     except Exception:
         pass
 
+    if db_id:
+        ma_khach_hang = db_id
+
     kh = None
+    # Tìm kiếm khách hàng bằng ID hoặc bằng SĐT để tránh trùng lặp
     for row in loy["khach"]:
-        if str(row["id"]) == str(ma_khach_hang):
+        if str(row["id"]) == str(ma_khach_hang) or (phone_val and str(row.get("sdt", "")).strip() == phone_val):
             kh = row
+            if kh["id"] != str(ma_khach_hang):
+                kh["id"] = str(ma_khach_hang)
             break
+
     if kh is None:
         kh = {
             "id": str(ma_khach_hang),
@@ -772,6 +782,15 @@ class ThemSuaVoucherDialog(QDialog):
         return self._result
 
     def _apply_dark_style(self) -> None:
+        self.ui.txt_ma_voucher.setStyleSheet("")
+        self.ui.txt_ten_voucher.setStyleSheet("")
+        self.ui.cmb_loai_khuyenmai.setStyleSheet("")
+        self.ui.txt_gia_tri.setStyleSheet("")
+        self.ui.dat_ngay_bd.setStyleSheet("")
+        self.ui.dat_ngay_kt.setStyleSheet("")
+        self.ui.txt_mota_voucher.setStyleSheet("")
+        self.ui.btn_luu_voucher.setStyleSheet("")
+        self.ui.btn_huy_bo.setStyleSheet("")
         self.setStyleSheet("""
             QDialog {
                 background-color: #090d16;

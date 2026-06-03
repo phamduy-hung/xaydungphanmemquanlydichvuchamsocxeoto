@@ -603,7 +603,7 @@ def create_order_from_web_booking(booking, actor="system"):
     svc_day = parse_appointment_date_to_date(booking.get("ngay_hen"))
     return create_order(
         {
-            "status": "NEW_WEB",
+            "status": "CHECKED_IN",
             "customer_name": booking.get("ho_ten", "Khách web"),
             "customer_phone": booking.get("sdt", ""),
             "plate": booking.get("bien_so", ""),
