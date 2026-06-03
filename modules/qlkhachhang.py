@@ -461,7 +461,7 @@ class CustomerManagerWidget(QWidget):
         self.date_filter_layout.setSpacing(8)
         
         self.cmb_date_preset = QComboBox()
-        self.cmb_date_preset.addItems(["Tất cả", "Hôm qua", "7 ngày trước", "1 tháng trước", "Tùy chọn..."])
+        self.cmb_date_preset.addItems(["Tất cả", "Hôm qua", "7 ngày trước", "1 tháng trước"])
         self.cmb_date_preset.setFixedWidth(130)
         self.cmb_date_preset.currentIndexChanged.connect(self._on_date_preset_changed)
         
@@ -528,6 +528,7 @@ class CustomerManagerWidget(QWidget):
                 border: 1px solid #f97316;
             }
             QLabel#lbl_from, QLabel#lbl_to {
+                background-color: transparent;
                 color: #94a3b8;
                 font-weight: bold;
                 font-size: 13px;
@@ -1125,9 +1126,9 @@ class CustomerManagerWidget(QWidget):
         if getattr(self, "_updating_date_presets", False):
             return
         
-        # Khi người dùng tự tay thay đổi ngày, chuyển combo về "Tùy chọn..."
+        # Khi người dùng tự tay thay đổi ngày, bỏ chọn preset (setCurrentIndex(-1))
         self.cmb_date_preset.blockSignals(True)
-        self.cmb_date_preset.setCurrentText("Tùy chọn...")
+        self.cmb_date_preset.setCurrentIndex(-1)
         self.cmb_date_preset.blockSignals(False)
         self.refresh_history_for_selected()
 
