@@ -472,6 +472,7 @@ class MainWindow(QMainWindow):
 
     def _ensure_web_bookings(self):
         if self.web is None and WEB_BOOKINGS_AVAILABLE:
+            self._ensure_crm()
             self.web = WebBookingsWidget(
                 crm_widget=self.crm,
                 current_role=self.current_role,
@@ -585,6 +586,7 @@ class MainWindow(QMainWindow):
 
     def _ensure_pos(self):
         if self.pos_mod is None and POSWidget:
+            self._ensure_crm()
             self.pos_mod = POSWidget(
                 current_role=self.current_role,
                 current_user=self.auth_user.get("username", "system"),

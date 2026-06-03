@@ -451,6 +451,41 @@ class CustomerManagerWidget(QWidget):
         self.ui.grp_history.setStyleSheet("")
         self.ui.label_2.setStyleSheet("")
         self.ui.label_3.setStyleSheet("")
+        
+        # Thêm bộ lọc ngày vào panel lịch sử dịch vụ bên phải
+        from PyQt5.QtWidgets import QHBoxLayout, QComboBox, QLabel, QDateEdit
+        from PyQt5.QtCore import QDate
+        
+        self.date_filter_layout = QHBoxLayout()
+        self.date_filter_layout.setContentsMargins(0, 5, 0, 5)
+        
+        self.cmb_date_preset = QComboBox()
+        self.cmb_date_preset.addItems(["Tất cả", "Hôm qua", "7 ngày trước", "1 tháng trước", "Tùy chọn..."])
+        self.cmb_date_preset.currentIndexChanged.connect(self._on_date_preset_changed)
+        
+        self.lbl_from = QLabel("Từ:")
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDate(QDate.currentDate().addDays(-7))
+        self.date_from.dateChanged.connect(self.refresh_history_for_selected)
+        
+        self.lbl_to = QLabel("Đến:")
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDate(QDate.currentDate())
+        self.date_to.dateChanged.connect(self.refresh_history_for_selected)
+        
+        self.date_filter_layout.addWidget(self.cmb_date_preset)
+        self.date_filter_layout.addWidget(self.lbl_from)
+        self.date_filter_layout.addWidget(self.date_from)
+        self.date_filter_layout.addWidget(self.lbl_to)
+        self.date_filter_layout.addWidget(self.date_to)
+        
+        # Chèn layout này vào verticalLayout_2 (sau label_3 và trước tbl_history)
+        self.ui.verticalLayout_2.insertLayout(2, self.date_filter_layout)
+        
+        # Trạng thái ban đầu của bộ lọc
+        self._on_date_preset_changed()
 
     def _apply_dark_style(self):
         self.setStyleSheet("""
@@ -472,15 +507,40 @@ class CustomerManagerWidget(QWidget):
                 padding: 0 4px;
                 font-weight: 700;
             }
-            QLineEdit, QComboBox, QTextEdit {
+            QLineEdit, QComboBox, QDateEdit, QTextEdit {
                 background-color: #0c101a;
                 color: #f8fafc;
                 border: 1px solid #27354a;
                 border-radius: 8px;
                 padding: 6px 10px;
             }
-            QLineEdit:focus, QComboBox:focus, QTextEdit:focus {
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QTextEdit:focus {
                 border: 1px solid #f97316;
+            }
+            QDateEdit::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QDateEdit::down-arrow {
+                image: url("C:/Users/LENOVO/OneDrive/Documents/xaydungphanmemquanlydichvuchamsocxeoto/assets/icons/muiten.png");
+                width: 10px;
+                height: 10px;
+            }
+            QCalendarWidget QWidget {
+                background-color: #0c101a;
+                color: #e2e8f0;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: #e2e8f0;
+                background-color: #0c101a;
+                selection-background-color: #f97316;
+                selection-color: #ffffff;
+            }
+            QCalendarWidget QAbstractItemView:disabled {
+                color: #4b5563;
+            }
+            QCalendarWidget QNavigationBar {
+                background-color: #1e293b;
             }
             QPushButton {
                 background-color: #161e2e;
@@ -1024,6 +1084,51 @@ class CustomerManagerWidget(QWidget):
                 table.selectRow(row)
                 return
 
+    def _on_date_preset_changed(self):
+        from PyQt5.QtCore import QDate
+        preset = self.cmb_date_preset.currentText()
+        today = QDate.currentDate()
+        
+        if preset == "Tất cả":
+            self.lbl_from.setEnabled(False)
+            self.date_from.setEnabled(False)
+            self.lbl_to.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif preset == "Hôm qua":
+            yesterday = today.addDays(-1)
+            self.date_from.setDate(yesterday)
+            self.date_to.setDate(yesterday)
+            self.lbl_from.setEnabled(False)
+            self.date_from.setEnabled(False)
+            self.lbl_to.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif preset == "7 ngày trước":
+            self.date_from.setDate(today.addDays(-7))
+            self.date_to.setDate(today)
+            self.lbl_from.setEnabled(False)
+            self.date_from.setEnabled(False)
+            self.lbl_to.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif preset == "1 tháng trước":
+            self.date_from.setDate(today.addMonths(-1))
+            self.date_to.setDate(today)
+            self.lbl_from.setEnabled(False)
+            self.date_from.setEnabled(False)
+            self.lbl_to.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif preset == "Tùy chọn...":
+            self.lbl_from.setEnabled(True)
+            self.date_from.setEnabled(True)
+            self.lbl_to.setEnabled(True)
+            self.date_to.setEnabled(True)
+            
+        self.refresh_history_for_selected()
+
+    def refresh_history_for_selected(self):
+        customer_id = self._get_selected_customer_id()
+        if customer_id is not None:
+            self._render_history(customer_id)
+
     def on_customer_selection_changed(self):
         customer_id = self._get_selected_customer_id()
         if customer_id is None:
@@ -1046,7 +1151,43 @@ class CustomerManagerWidget(QWidget):
         table = self.ui.tbl_history
         table.setRowCount(0)
 
-        for row, history in enumerate(histories):
+        # Áp dụng bộ lọc ngày
+        preset = self.cmb_date_preset.currentText()
+        filtered_histories = []
+        
+        for h in histories:
+            h_date_str = str(h.get("ngay", "")).strip()
+            if not h_date_str:
+                if preset == "Tất cả":
+                    filtered_histories.append(h)
+                continue
+            
+            try:
+                h_date = None
+                for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+                    try:
+                        h_date = datetime.strptime(h_date_str, fmt).date()
+                        break
+                    except Exception:
+                        continue
+                if not h_date:
+                    if preset == "Tất cả":
+                        filtered_histories.append(h)
+                    continue
+            except Exception:
+                if preset == "Tất cả":
+                    filtered_histories.append(h)
+                continue
+                
+            if preset != "Tất cả":
+                from_date = self.date_from.date().toPyDate()
+                to_date = self.date_to.date().toPyDate()
+                if not (from_date <= h_date <= to_date):
+                    continue
+            
+            filtered_histories.append(h)
+
+        for row, history in enumerate(filtered_histories):
             table.insertRow(row)
             table.setItem(row, 0, QTableWidgetItem(history["ngay"]))
             table.setItem(row, 1, QTableWidgetItem(history.get("hang_xe", "")))
