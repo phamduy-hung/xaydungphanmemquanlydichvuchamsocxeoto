@@ -314,6 +314,7 @@ class HoverCardFrame(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
+        self.setAttribute(Qt.WA_StyledBackground, True)
 
         # Tạo bóng đổ
         self._shadow = QGraphicsDropShadowEffect(self)

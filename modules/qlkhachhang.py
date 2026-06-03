@@ -53,9 +53,17 @@ def _crm_class_from_tier(tier: str, points: int) -> str:
 def _apply_loyalty_rule(customer: dict, rules: dict):
     points = int(customer.get("diem", 0) or 0)
     tier = _tier_from_points(points, rules)
+    
+    # Tự động nâng cấp lên VIP nếu tổng chi tiêu vượt quá 50 triệu VNĐ
+    tong_chi_tieu = int(customer.get("tong_chi_tieu", 0) or 0)
+    if tong_chi_tieu > 50000000:
+        tier = TIER_VIP
+        
     customer["hang_thanh_vien"] = tier
     customer["chiet_khau"] = int(DISCOUNT_BY_TIER.get(tier, 1))
     customer["phan_loai"] = _crm_class_from_tier(tier, points)
+    if tong_chi_tieu > 50000000:
+        customer["phan_loai"] = CLASS_VIP
 
 
 def _to_mysql_date(value: str):
@@ -745,6 +753,20 @@ class CustomerManagerWidget(QWidget):
                         "ktv": h.get("technician", ""),
                     }
                 )
+
+            # Tính toán lại tổng chi tiêu tích lũy và điểm số dựa trên toàn bộ lịch sử dịch vụ
+            for customer in self.customers:
+                cid = int(customer["id"])
+                histories = self.service_history_map.get(cid, [])
+                if histories:
+                    customer["tong_chi_tieu"] = sum(h["tong_tien"] for h in histories)
+                    # Phục hồi điểm tích lũy tối thiểu từ lịch sử hóa đơn (đề phòng bị ghi đè bằng 0)
+                    calculated_points = sum((h["tong_tien"] // 1000000) * int(self.loyalty_rules.get("diem_moi_1trieu", 10)) for h in histories)
+                    customer["diem"] = max(customer.get("diem", 0), calculated_points)
+                else:
+                    customer["tong_chi_tieu"] = 0
+                _apply_loyalty_rule(customer, self.loyalty_rules)
+
             return bool(self.customers)
         except Exception:
             return False

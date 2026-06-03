@@ -519,6 +519,29 @@ def ghi_nhan_thanh_toan_tich_hop(ma_khach_hang: str, so_tien_vnd: int, ten_khach
     store = get_store()
     loy = store.data["loyalty"]
     diem_cong = diem_tu_thanh_toan(so_tien_vnd, int(loy["diem_moi_1trieu"]))
+    
+    # Đồng bộ thông tin điểm và chi tiêu từ MySQL database trước khi cộng dồn
+    db_spent = 0
+    db_points = 0
+    phone_val = str(sdt or ma_khach_hang or "").strip()
+    try:
+        from database.connection import fetch_one
+        row_db = None
+        if phone_val and phone_val != "-":
+            row_db = fetch_one("SELECT total_spent, points FROM customers WHERE phone=%s", (phone_val,))
+        if not row_db:
+            try:
+                cid = int(str(ma_khach_hang).strip())
+                if cid > 0:
+                    row_db = fetch_one("SELECT total_spent, points FROM customers WHERE id=%s", (cid,))
+            except Exception:
+                pass
+        if row_db:
+            db_spent = int(float(row_db.get("total_spent") or 0))
+            db_points = int(row_db.get("points") or 0)
+    except Exception:
+        pass
+
     kh = None
     for row in loy["khach"]:
         if str(row["id"]) == str(ma_khach_hang):
@@ -529,11 +552,16 @@ def ghi_nhan_thanh_toan_tich_hop(ma_khach_hang: str, so_tien_vnd: int, ten_khach
             "id": str(ma_khach_hang),
             "ten": ten_khach_hang or f"Khách #{ma_khach_hang}",
             "sdt": sdt or "",
-            "diem": 0,
+            "diem": db_points,
             "hang": TIER_DONG,
             "chiet_khau": 1,
+            "tong_chi_tieu": db_spent,
         }
         loy["khach"].append(kh)
+    else:
+        kh["tong_chi_tieu"] = max(int(kh.get("tong_chi_tieu", 0)), db_spent)
+        kh["diem"] = max(int(kh.get("diem", 0)), db_points)
+
     kh["diem"] = int(kh["diem"]) + diem_cong
     kh["tong_chi_tieu"] = int(kh.get("tong_chi_tieu", 0)) + int(so_tien_vnd or 0)
     if ten_khach_hang:
@@ -1007,6 +1035,88 @@ class ChamSocKhachHangVaMarketingWindow(QWidget):
         self._refresh_tich_diem()
 
     def _refresh_tich_diem(self) -> None:
+        # Tự động đồng bộ điểm & chi tiêu tích lũy từ MySQL database trước khi hiển thị
+        try:
+            ensure_mysql_ready()
+            loy = self._loyalty_dict()
+            
+            # Tải tất cả lịch sử dịch vụ để tính tổng chi tiêu thực tế và điểm số tích lũy cho từng khách hàng
+            db_history = fetch_all("SELECT customer_id, amount FROM crm_service_history")
+            spent_map = {}
+            for h in db_history:
+                cid = int(h.get("customer_id") or 0)
+                amt = int(float(h.get("amount") or 0))
+                spent_map[cid] = spent_map.get(cid, 0) + amt
+
+            db_customers = fetch_all("SELECT id, full_name, phone, points, tier, discount_percent, total_spent FROM customers")
+            
+            # Cập nhật hoặc thêm khách hàng từ MySQL vào JSON store
+            kh_by_id = {str(k["id"]): k for k in loy["khach"]}
+            for dbc in db_customers:
+                cid = str(dbc["id"])
+                
+                # Tính tổng chi tiêu thực tế từ lịch sử dịch vụ
+                real_spent = spent_map.get(dbc["id"], int(float(dbc.get("total_spent") or 0)))
+                # Tính điểm số dựa trên tổng chi tiêu thực tế (1 triệu VND = X điểm)
+                pts_per_mil = int(loy.get("diem_moi_1trieu", 10))
+                calculated_points = (real_spent // 1000000) * pts_per_mil
+                diem = max(int(dbc.get("points") or 0), calculated_points)
+                
+                # Xác định hạng hiện tại dựa trên điểm số và quy tắc điểm hạng
+                hang = tinh_hang_theo_diem(
+                    diem,
+                    int(loy.get("nguong_dong", 0)),
+                    int(loy.get("nguong_bac", 500)),
+                    int(loy.get("nguong_vang", 1500)),
+                    int(loy.get("nguong_vip", 5000)),
+                )
+                
+                # Nếu tổng chi tiêu > 50 triệu thì tự nâng VIP
+                if real_spent > 50000000:
+                    hang = TIER_VIP
+                    
+                chiet_khau = CHIET_KHAU.get(hang, 1)
+                
+                if cid in kh_by_id:
+                    kh = kh_by_id[cid]
+                    kh["ten"] = dbc.get("full_name") or kh.get("ten", "")
+                    kh["sdt"] = dbc.get("phone") or kh.get("sdt", "")
+                    kh["diem"] = diem
+                    kh["tong_chi_tieu"] = real_spent
+                    kh["hang"] = hang
+                    kh["chiet_khau"] = chiet_khau
+                else:
+                    new_kh = {
+                        "id": cid,
+                        "ten": dbc.get("full_name") or f"Khách #{cid}",
+                        "sdt": dbc.get("phone") or "",
+                        "diem": diem,
+                        "hang": hang,
+                        "chiet_khau": chiet_khau,
+                        "tong_chi_tieu": real_spent,
+                        "email": "",
+                        "bien_so": "",
+                    }
+                    loy["khach"].append(new_kh)
+                    
+            # Đồng bộ ngược lại các giá trị tổng chi tiêu, điểm số và hạng vào database MySQL để đảm bảo tính nhất quán
+            for k in loy["khach"]:
+                try:
+                    cid_int = int(k["id"])
+                    execute(
+                        """
+                        UPDATE customers
+                        SET points=%s, tier=%s, discount_percent=%s, total_spent=%s
+                        WHERE id=%s
+                        """,
+                        (int(k["diem"]), k.get("hang", TIER_DONG), float(k.get("chiet_khau", 1)), float(k.get("tong_chi_tieu", 0)), cid_int)
+                    )
+                except Exception:
+                    pass
+            self.store.save()
+        except Exception as e:
+            print("Error syncing loyalty with MySQL:", e)
+
         loy = self._loyalty_dict()
         kw = self.ui.txt_timkiem_thanhvien.text().strip().lower()
         rows = []

@@ -193,6 +193,7 @@ class QuanLyDichVuWidget(QWidget):
         )
 
     def _load_product_combo(self):
+        current_pid = self.cmb_product.currentData()
         self.cmb_product.clear()
         self._products = []
         try:
@@ -206,8 +207,13 @@ class QuanLyDichVuWidget(QWidget):
             name = str(p.get("name") or "").strip()
             label = f"{code} — {name}" if code else name
             self.cmb_product.addItem(label, pid)
+        if current_pid is not None:
+            idx = self.cmb_product.findData(current_pid)
+            if idx >= 0:
+                self.cmb_product.setCurrentIndex(idx)
 
     def reload_services_table(self):
+        self._load_product_combo()
         try:
             ensure_mysql_ready()
             include = self.chk_inactive.isChecked()

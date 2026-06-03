@@ -284,16 +284,21 @@ class POSWidget(QWidget):
             ensure_mysql_ready()
             items = load_unified_catalog_items()
             if items:
-                return items
+                # Chỉ giữ lại các vật tư/sản phẩm, loại bỏ các dịch vụ
+                return [it for it in items if it.get("type") == "Sản phẩm"]
         except Exception:
             pass
         # Fallback if DB is unavailable at runtime.
         return [
-            {"name": "Rửa xe thường", "price": 120000, "type": "Dịch vụ"},
-            {"name": "Rửa xe + hút bụi", "price": 180000, "type": "Dịch vụ"},
-            {"name": "Đánh bóng", "price": 450000, "type": "Dịch vụ"},
             {"name": "Dầu nhớt Castrol GTX 5W-30", "price": 120000, "type": "Sản phẩm"},
             {"name": "Nước rửa kính Meguiar", "price": 50000, "type": "Sản phẩm"},
+            {"name": "Lọc gió Toyota Camry", "price": 150000, "type": "Sản phẩm"},
+            {"name": "Dầu phanh DOT 4", "price": 80000, "type": "Sản phẩm"},
+            {"name": "Bọt rửa xe cao cấp", "price": 30000, "type": "Sản phẩm"},
+            {"name": "Vệ sinh nội thất Meguiar", "price": 250000, "type": "Sản phẩm"},
+            {"name": "Lớp xe Michelin 205/55R16", "price": 2500000, "type": "Sản phẩm"},
+            {"name": "Ắc quy 12V 60Ah", "price": 800000, "type": "Sản phẩm"},
+            {"name": "Dung dịch làm mát", "price": 60000, "type": "Sản phẩm"},
         ]
 
     def _bind_ui(self):
@@ -375,6 +380,12 @@ class POSWidget(QWidget):
         self.txt_customer.textChanged.connect(self._schedule_intake_prefill)
         self.txt_customer_phone.textChanged.connect(self._schedule_intake_prefill)
 
+        # Override các nhãn chữ hiển thị của danh mục theo yêu cầu (chỉ dùng Vật tư/Sản phẩm)
+        self.lbl_avail_title.setText("📦 DANH MỤC VẬT TƯ")
+        self.txt_search_item.setPlaceholderText("Gõ để tìm kiếm sản phẩm...")
+        if self.tbl_items.horizontalHeaderItem(0):
+            self.tbl_items.horizontalHeaderItem(0).setText("Sản phẩm")
+
     def _rebuild_catalog_index(self):
         self._catalog_by_name = {it["name"]: it for it in (self.catalog_items or [])}
 
@@ -400,22 +411,46 @@ class POSWidget(QWidget):
         try:
             from database.connection import fetch_one
             row = fetch_one(
-                "SELECT tier, discount_percent FROM customers WHERE phone = %s LIMIT 1",
+                "SELECT full_name, tier, discount_percent FROM customers WHERE phone = %s LIMIT 1",
                 (phone,)
             )
             if row:
                 self.customer_tier = str(row.get("tier") or "Đồng")
                 self.customer_discount_percent = float(row.get("discount_percent") or 0.0)
+                
+                # Tự động điền tên khách hàng nếu trường này trống hoặc là "Khách lẻ"
+                current_name = (self.txt_customer.text() or "").strip()
+                if not current_name or current_name == "Khách lẻ":
+                    full_name = str(row.get("full_name") or "").strip()
+                    if full_name:
+                        self.txt_customer.blockSignals(True)
+                        self.txt_customer.setText(full_name)
+                        self.txt_customer.blockSignals(False)
+                        self._customer_name_was_entered = True
             else:
                 self.customer_tier = "Đồng"
                 self.customer_discount_percent = 0.0
+                
+                # Thử tìm tên từ bảng service_orders nếu không tồn tại trong bảng customers
+                current_name = (self.txt_customer.text() or "").strip()
+                if not current_name or current_name == "Khách lẻ":
+                    row_order = fetch_one(
+                        "SELECT customer_name FROM service_orders WHERE customer_phone = %s ORDER BY created_at DESC, id DESC LIMIT 1",
+                        (phone,)
+                    )
+                    if row_order and row_order.get("customer_name"):
+                        ord_name = str(row_order["customer_name"]).strip()
+                        if ord_name:
+                            self.txt_customer.blockSignals(True)
+                            self.txt_customer.setText(ord_name)
+                            self.txt_customer.blockSignals(False)
+                            self._customer_name_was_entered = True
         except Exception:
             self.customer_tier = "Đồng"
             self.customer_discount_percent = 0.0
 
     def _schedule_intake_prefill(self):
         self._prefill_timer.stop()
-        name = (self.txt_customer.text() or "").strip()
         phone_digits = self._digits_only(self.txt_customer_phone.text())
 
         if len(phone_digits) == 0:
@@ -427,6 +462,9 @@ class POSWidget(QWidget):
 
         self._fetch_customer_loyalty_info()
         self._recalculate_totals()
+
+        # Đọc lại name sau khi _fetch_customer_loyalty_info có thể đã tự điền tên
+        name = (self.txt_customer.text() or "").strip()
 
         if name:
             self._customer_name_was_entered = True
@@ -784,8 +822,13 @@ class POSWidget(QWidget):
             self.lbl_discount_note.setText("Chưa áp mã giảm giá")
             
             # Tự động xóa thông tin khách hàng để nhập thông tin khách hàng khác
+            self.txt_customer.blockSignals(True)
+            self.txt_customer_phone.blockSignals(True)
             self.txt_customer.clear()
             self.txt_customer_phone.clear()
+            self.txt_customer.blockSignals(False)
+            self.txt_customer_phone.blockSignals(False)
+            
             self.customer_tier = "Đồng"
             self.customer_discount_percent = 0.0
             self._last_intake_phone = None

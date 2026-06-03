@@ -3,7 +3,9 @@ import re
 import unicodedata
 
 from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -35,9 +37,10 @@ from database.models import load_service_catalog, get_service_price_map, get_ser
 
 
 class TiepNhanXeWidget(QWidget):
-    def __init__(self, current_user="system"):
+    def __init__(self, current_user="system", current_role="Quản lý"):
         super().__init__()
         self.current_user = current_user
+        self.current_role = current_role
         self.tech_pool = []
         self._orders_cache = []
         self._service_price_map = {}
@@ -66,8 +69,12 @@ class TiepNhanXeWidget(QWidget):
         self.btn_clear_search = QPushButton("Xóa lọc")
         self.btn_clear_search.setObjectName("btn_clear_search")
         self.btn_clear_search.clicked.connect(lambda: self.txt_search.setText(""))
+        self.chk_show_cancelled = QCheckBox("Hiển thị lệnh đã hủy")
+        self.chk_show_cancelled.setChecked(False)
+        self.chk_show_cancelled.stateChanged.connect(self._on_search_text_changed)
         search_row.addWidget(self.txt_search)
         search_row.addWidget(self.btn_clear_search)
+        search_row.addWidget(self.chk_show_cancelled)
         root.addLayout(search_row)
 
         form = QHBoxLayout()
@@ -115,46 +122,55 @@ class TiepNhanXeWidget(QWidget):
         root.addLayout(form)
 
         action = QHBoxLayout()
+        self.btn_checkin = QPushButton("Nhận xe vào xưởng")
+        self.btn_checkin.setObjectName("btn_checkin_order")
         self.btn_quote = QPushButton("Đánh dấu Đã báo giá")
         self.btn_approve = QPushButton("Đánh dấu Đã duyệt")
         self.btn_done = QPushButton("Đánh dấu Hoàn tất")
         self.btn_edit_services = QPushButton("Chỉnh sửa dịch vụ")
         self.btn_wait_parts = QPushButton("Yêu cầu vật tư")
         self.btn_exported = QPushButton("Xác nhận xuất kho")
-        for b in (self.btn_quote, self.btn_approve, self.btn_done, self.btn_edit_services, self.btn_wait_parts, self.btn_exported):
+        self.btn_cancel = QPushButton("Hủy lệnh")
+        self.btn_cancel.setObjectName("btn_cancel_order")
+        for b in (self.btn_checkin, self.btn_quote, self.btn_approve, self.btn_done, self.btn_edit_services, self.btn_wait_parts, self.btn_exported, self.btn_cancel):
             b.setCheckable(True)
+        self.btn_checkin.clicked.connect(lambda: self._transition_selected("CHECKED_IN"))
         self.btn_quote.clicked.connect(lambda: self._transition_selected("QUOTED"))
         self.btn_approve.clicked.connect(lambda: self._transition_selected("APPROVED"))
         self.btn_done.clicked.connect(lambda: self._transition_selected("DONE"))
         self.btn_edit_services.clicked.connect(self._edit_services_for_selected)
         self.btn_wait_parts.clicked.connect(self._request_parts_for_selected)
         self.btn_exported.clicked.connect(self._mark_parts_exported_selected)
+        self.btn_cancel.clicked.connect(self._cancel_selected_order)
+        action.addWidget(self.btn_checkin)
         action.addWidget(self.btn_quote)
         action.addWidget(self.btn_approve)
         action.addWidget(self.btn_edit_services)
         action.addWidget(self.btn_wait_parts)
         action.addWidget(self.btn_exported)
         action.addWidget(self.btn_done)
+        action.addWidget(self.btn_cancel)
         action.addStretch()
         root.addLayout(action)
 
         self.tbl = QTableWidget()
-        self.tbl.setColumnCount(11)
+        self.tbl.setColumnCount(12)
         self.tbl.setHorizontalHeaderLabels(
-            ["Mã lệnh", "Nguồn", "Khách hàng", "SĐT", "Hãng xe", "Biển số", "Dịch vụ", "Tổng giá thành", "KTV phụ trách", "Trạng thái", "Vật tư"]
+            ["Mã lệnh", "Nguồn", "Thời gian tạo", "Khách hàng", "SĐT", "Hãng xe", "Biển số", "Dịch vụ", "Tổng giá thành", "KTV phụ trách", "Trạng thái", "Vật tư"]
         )
         self.tbl.verticalHeader().setVisible(False)
         self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         self.tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.tbl.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        self.tbl.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)
-        self.tbl.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        self.tbl.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self.tbl.horizontalHeader().setSectionResizeMode(7, QHeaderView.Stretch)
         self.tbl.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeToContents)
         self.tbl.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeToContents)
-        self.tbl.horizontalHeader().setSectionResizeMode(10, QHeaderView.Stretch)
+        self.tbl.horizontalHeader().setSectionResizeMode(10, QHeaderView.ResizeToContents)
+        self.tbl.horizontalHeader().setSectionResizeMode(11, QHeaderView.Stretch)
         self.tbl.itemSelectionChanged.connect(self._remember_current_selection)
         root.addWidget(self.tbl)
 
@@ -205,6 +221,26 @@ class TiepNhanXeWidget(QWidget):
             QPushButton#btnIntakeAdd:checked {
                 background-color: #10b981;
                 border: 1px solid #34d399;
+            }
+            QPushButton#btn_cancel_order {
+                background-color: #311c1c;
+                color: #ef4444;
+                border: 1px solid #7f1d1d;
+            }
+            QPushButton#btn_cancel_order:hover {
+                background-color: #7f1d1d;
+                color: #fca5a5;
+                border: 1px solid #b91c1c;
+            }
+            QPushButton#btn_checkin_order {
+                background-color: #1e1b4b;
+                color: #818cf8;
+                border: 1px solid #3730a3;
+            }
+            QPushButton#btn_checkin_order:hover {
+                background-color: #3730a3;
+                color: #e0e7ff;
+                border: 1px solid #4338ca;
             }
             QTableWidget {
                 background-color: #0c101a;
@@ -476,6 +512,48 @@ class TiepNhanXeWidget(QWidget):
         picked = self._get_selected_order_id()
         if picked:
             self._selected_order_id = picked
+            row = self.tbl.currentRow()
+            if row >= 0:
+                status_item = self.tbl.item(row, 10)
+                if status_item:
+                    self._update_button_states_for_status(status_item.text().strip())
+        else:
+            self._update_button_states_for_status("")
+
+    def _update_button_states_for_status(self, status):
+        # 1. Reset check status
+        for b in (self.btn_checkin, self.btn_quote, self.btn_approve, self.btn_done):
+            b.setChecked(False)
+
+        # 2. Highlight active state button
+        mapping = {
+            "CHECKED_IN": self.btn_checkin,
+            "QUOTED": self.btn_quote,
+            "APPROVED": self.btn_approve,
+            "DONE": self.btn_done
+        }
+        if status in mapping:
+            mapping[status].setChecked(True)
+
+        # 3. Handle default disabled state if no order is selected
+        if not status:
+            for b in (self.btn_checkin, self.btn_quote, self.btn_approve, self.btn_done, self.btn_cancel, self.btn_edit_services, self.btn_wait_parts, self.btn_exported):
+                b.setEnabled(False)
+            return
+
+        # 4. Enable/disable dynamically based on state machine rules
+        from modules.service_orders import ALLOWED_TRANSITIONS
+        allowed = ALLOWED_TRANSITIONS.get(status, set())
+
+        self.btn_checkin.setEnabled("CHECKED_IN" in allowed)
+        self.btn_quote.setEnabled("QUOTED" in allowed)
+        self.btn_approve.setEnabled("APPROVED" in allowed)
+        self.btn_done.setEnabled("DONE" in allowed or status == "IN_SERVICE")
+        self.btn_cancel.setEnabled("CANCELLED" in allowed)
+        
+        self.btn_edit_services.setEnabled(status not in ("PAID", "AFTERCARE", "CANCELLED"))
+        self.btn_wait_parts.setEnabled("WAITING_PARTS" in allowed or status in ("APPROVED", "IN_SERVICE"))
+        self.btn_exported.setEnabled(status == "WAITING_PARTS")
 
     def _restore_selection(self, preferred_order_id):
         target = str(preferred_order_id or "").strip()
@@ -543,16 +621,23 @@ class TiepNhanXeWidget(QWidget):
                 or keyword in str(it.get("customer_phone", "")).strip().lower()
             ]
         self.tbl.setRowCount(0)
-        for row, it in enumerate(data):
-            self.tbl.insertRow(row)
-            self.tbl.setItem(row, 0, QTableWidgetItem(str(it.get("order_id", "-"))))
-            self.tbl.setItem(row, 1, QTableWidgetItem(str(it.get("source", "-"))))
-            self.tbl.setItem(row, 2, QTableWidgetItem(str(it.get("customer_name", ""))))
-            self.tbl.setItem(row, 3, QTableWidgetItem(str(it.get("customer_phone", ""))))
-            self.tbl.setItem(row, 4, QTableWidgetItem(str(it.get("car_model", ""))))
-            self.tbl.setItem(row, 5, QTableWidgetItem(str(it.get("plate", ""))))
+        row_idx = 0
+        for it in data:
+            status = it.get("status", "")
+            is_cancelled = (status == "CANCELLED")
+            if is_cancelled and not self.chk_show_cancelled.isChecked():
+                continue
+
+            self.tbl.insertRow(row_idx)
+            self.tbl.setItem(row_idx, 0, QTableWidgetItem(str(it.get("order_id", "-"))))
+            self.tbl.setItem(row_idx, 1, QTableWidgetItem(str(it.get("source", "-"))))
+            self.tbl.setItem(row_idx, 2, QTableWidgetItem(str(it.get("created_at", ""))))
+            self.tbl.setItem(row_idx, 3, QTableWidgetItem(str(it.get("customer_name", ""))))
+            self.tbl.setItem(row_idx, 4, QTableWidgetItem(str(it.get("customer_phone", ""))))
+            self.tbl.setItem(row_idx, 5, QTableWidgetItem(str(it.get("car_model", ""))))
+            self.tbl.setItem(row_idx, 6, QTableWidgetItem(str(it.get("plate", ""))))
             services = it.get("services", []) or []
-            self.tbl.setItem(row, 6, QTableWidgetItem(", ".join(services)))
+            self.tbl.setItem(row_idx, 7, QTableWidgetItem(", ".join(services)))
             total_price = int(it.get("service_total") or 0)
             if total_price <= 0:
                 service_items = it.get("service_items", []) or []
@@ -560,14 +645,23 @@ class TiepNhanXeWidget(QWidget):
                     total_price = sum(int(x.get("unit_price") or 0) for x in service_items)
             if total_price <= 0:
                 total_price = self._calc_order_total_from_services(services)
-            self.tbl.setItem(row, 7, QTableWidgetItem(self._format_vnd(total_price) if total_price > 0 else "Chưa báo giá"))
-            self.tbl.setItem(row, 8, QTableWidgetItem(str(it.get("assigned_to", ""))))
-            self.tbl.setItem(row, 9, QTableWidgetItem(str(it.get("status", ""))))
+            self.tbl.setItem(row_idx, 8, QTableWidgetItem(self._format_vnd(total_price) if total_price > 0 else "Chưa báo giá"))
+            self.tbl.setItem(row_idx, 9, QTableWidgetItem(str(it.get("assigned_to", ""))))
+            self.tbl.setItem(row_idx, 10, QTableWidgetItem(str(status)))
             parts = it.get("material_requests", []) or []
             pending = sum(1 for x in parts if not x.get("exported"))
             exported = sum(1 for x in parts if x.get("exported"))
-            self.tbl.setItem(row, 10, QTableWidgetItem(f"chờ: {pending} | đã xuất: {exported}"))
+            self.tbl.setItem(row_idx, 11, QTableWidgetItem(f"chờ: {pending} | đã xuất: {exported}"))
+
+            if is_cancelled:
+                for col in range(12):
+                    item = self.tbl.item(row_idx, col)
+                    if item:
+                        item.setForeground(QColor("#64748b"))
+            row_idx += 1
         self._restore_selection(preferred_order_id)
+        if self.tbl.currentRow() < 0:
+            self._update_button_states_for_status("")
 
     def create_manual_order(self):
         customer = (self.txt_customer.text() or "").strip() or "Khách lẻ"
@@ -656,13 +750,14 @@ class TiepNhanXeWidget(QWidget):
         try:
             transition_order_status(order_id, to_status, actor=self.current_user)
             append_audit_log("service_order.transition", self.current_user, {"order_id": order_id, "to": to_status})
-        except Exception:
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Lỗi chuyển trạng thái",
+                f"Không thể chuyển trạng thái lệnh {order_id}.\nChi tiết: {e}"
+            )
+            self.refresh_data()
             return
-        mapping = {"QUOTED": self.btn_quote, "APPROVED": self.btn_approve, "DONE": self.btn_done}
-        for b in (self.btn_quote, self.btn_approve, self.btn_done):
-            b.setChecked(False)
-        if to_status in mapping:
-            mapping[to_status].setChecked(True)
         self.refresh_data()
 
     def _edit_services_for_selected(self):
@@ -811,3 +906,79 @@ class TiepNhanXeWidget(QWidget):
             return
         self.btn_exported.setChecked(True)
         self.refresh_data()
+
+    def _prompt_cancellation_reason(self, order_id):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Hủy lệnh dịch vụ")
+        dlg.setMinimumWidth(380)
+        dlg.setStyleSheet(self.styleSheet())
+        
+        layout = QVBoxLayout(dlg)
+        
+        lbl = QLabel(f"Bạn có chắc chắn muốn hủy lệnh <b>{order_id}</b> không?")
+        lbl.setStyleSheet("color: #f1f5f9; font-size: 13px;")
+        layout.addWidget(lbl)
+        
+        lbl_hint = QLabel("Nhập lý do hủy lệnh (bắt buộc):")
+        lbl_hint.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        layout.addWidget(lbl_hint)
+        
+        txt_reason = QLineEdit()
+        txt_reason.setPlaceholderText("Ví dụ: Khách đổi ý, trùng lịch...")
+        layout.addWidget(txt_reason)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+        
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        
+        if dlg.exec_() == QDialog.Accepted:
+            reason = txt_reason.text().strip()
+            if not reason:
+                QMessageBox.warning(self, "Thiếu thông tin", "Bạn phải nhập lý do để hủy lệnh.")
+                return None
+            return reason
+        return None
+
+    def _cancel_selected_order(self):
+        self.btn_cancel.setChecked(False)
+        row = self.tbl.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Chưa chọn lệnh", "Vui lòng chọn một lệnh dịch vụ muốn hủy.")
+            return
+        order_id = (self.tbl.item(row, 0).text() if self.tbl.item(row, 0) else "").strip()
+        if not order_id:
+            return
+            
+        order = get_order(order_id)
+        if not order:
+            return
+            
+        status = order.get("status", "")
+        from modules.service_orders import ALLOWED_TRANSITIONS
+        allowed = ALLOWED_TRANSITIONS.get(status, set())
+        if "CANCELLED" not in allowed:
+            QMessageBox.warning(
+                self, 
+                "Không thể hủy lệnh", 
+                f"Lệnh ở trạng thái '{status}' không thể hủy. Chỉ có thể hủy lệnh chưa thanh toán."
+            )
+            return
+            
+        reason = self._prompt_cancellation_reason(order_id)
+        if not reason:
+            return
+            
+        try:
+            transition_order_status(order_id, "CANCELLED", actor=self.current_user, note=reason)
+            append_audit_log(
+                "service_order.cancel", 
+                self.current_user, 
+                {"order_id": order_id, "reason": reason}
+            )
+            QMessageBox.information(self, "Thành công", f"Đã hủy lệnh {order_id} thành công.")
+            self.refresh_data()
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Không thể hủy lệnh.\nChi tiết: {e}")
+

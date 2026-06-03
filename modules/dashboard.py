@@ -3,7 +3,7 @@ import math
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QFrame, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont
 from ui.compiled.ui_dashboard import Ui_Form as Ui_Form_Dashboard
 
@@ -154,9 +154,11 @@ class DashboardWidget(QWidget):
     go_to_pos = pyqtSignal()
     go_to_kho = pyqtSignal()
     go_to_cskh = pyqtSignal()
+    go_to_tiepnhan = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, auth_user=None):
         super().__init__()
+        self.auth_user = auth_user or {"username": "admin", "role": "Quản lý"}
         
         from PyQt5.QtWidgets import QScrollArea
         self.scroll_area = QScrollArea(self)
@@ -164,13 +166,13 @@ class DashboardWidget(QWidget):
         self.scroll_area.setFrameShape(QScrollArea.NoFrame)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.scroll_area.setStyleSheet("background-color: #090d16; border: none;")
+        self.scroll_area.setStyleSheet("QScrollArea { background-color: #090d16; border: none; }")
         if self.scroll_area.viewport():
-            self.scroll_area.viewport().setStyleSheet("background-color: #090d16;")
+            self.scroll_area.viewport().setStyleSheet("QWidget { background-color: #090d16; }")
         
         self.scroll_content = QWidget()
         self.scroll_content.setObjectName("dashboardRoot")
-        self.scroll_content.setStyleSheet("background-color: #090d16;")
+        self.scroll_content.setStyleSheet("#dashboardRoot { background-color: #090d16; }")
         self.ui = Ui_Form_Dashboard()
         self.ui.setupUi(self.scroll_content)
         self.scroll_area.setWidget(self.scroll_content)
@@ -180,7 +182,43 @@ class DashboardWidget(QWidget):
         main_lay.addWidget(self.scroll_area)
         
         self.setObjectName("dashboardRootWrapper")
-        self.ui.lbl_dashboard_title.setObjectName("dashboardTitle")
+        
+        # Hide original simple title label
+        self.ui.lbl_dashboard_title.hide()
+        
+        # Custom Premium Welcome Header Card
+        header_card = QFrame()
+        header_card.setObjectName("dashboardHeaderCard")
+        header_card.setAttribute(Qt.WA_StyledBackground, True)
+        
+        header_lay = QHBoxLayout(header_card)
+        header_lay.setContentsMargins(20, 16, 20, 16)
+        header_lay.setSpacing(15)
+        
+        left_header = QVBoxLayout()
+        left_header.setSpacing(4)
+        
+        username = self.auth_user.get("username", "admin")
+        role = self.auth_user.get("role", "Quản lý")
+        
+        self.lbl_welcome = QLabel(f"Chào mừng trở lại, {username}!")
+        self.lbl_welcome.setObjectName("dashboardWelcomeTitle")
+        
+        self.lbl_welcome_sub = QLabel(f"Vai trò: {role} • Hệ thống chăm sóc xe ProCare Premium")
+        self.lbl_welcome_sub.setObjectName("dashboardWelcomeSub")
+        
+        left_header.addWidget(self.lbl_welcome)
+        left_header.addWidget(self.lbl_welcome_sub)
+        
+        self.lbl_datetime = QLabel()
+        self.lbl_datetime.setObjectName("dashboardDateTime")
+        self.lbl_datetime.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        
+        header_lay.addLayout(left_header)
+        header_lay.addWidget(self.lbl_datetime)
+        
+        self.ui.main_layout.insertWidget(0, header_card)
+        
         self.ui.lbl_action_title.setObjectName("dashboardSubTitle")
         self.ui.lbl_quick_title.setObjectName("dashboardSubTitle")
 
@@ -208,10 +246,10 @@ class DashboardWidget(QWidget):
 
         btn1 = self._make_action_btn("Tạo Hóa Đơn Mới", "#10b981")
         btn2 = self._make_action_btn("Nhập Vật Tư", "#0ea5e9")
-        btn3 = self._make_action_btn("Gửi Thông Báo Tới Khách", "#6366f1")
+        btn3 = self._make_action_btn("Tiếp Nhận Xe", "#6366f1")
         btn1.clicked.connect(self.go_to_pos.emit)
         btn2.clicked.connect(self.go_to_kho.emit)
-        btn3.clicked.connect(self.go_to_cskh.emit)
+        btn3.clicked.connect(self.go_to_tiepnhan.emit)
 
         actions_lay.addWidget(btn1)
         actions_lay.addWidget(btn2)
@@ -227,25 +265,45 @@ class DashboardWidget(QWidget):
         # Title for bottom section
         self.lbl_bottom_title = QLabel("Cảnh báo & Hoạt động gần đây")
         self.lbl_bottom_title.setObjectName("dashboardSubTitle")
-        self.ui.main_layout.insertWidget(6, self.lbl_bottom_title)
 
-        # Bottom layout
+        # Bottom layout (containing recent orders & inventory alerts)
         bottom_lay = QHBoxLayout()
         bottom_lay.setSpacing(16)
-        
-        # Recent Orders Card
         bottom_lay.addWidget(self._make_recent_orders_card(), 6)
-        
-        # Inventory alerts card
         bottom_lay.addWidget(self._make_low_stock_card(), 4)
-        
-        self.ui.main_layout.insertLayout(7, bottom_lay)
+
+        # Tìm index của layout_quick_charts để chèn phân vùng bảng biểu xuống phía dưới biểu đồ
+        idx = -1
+        for i in range(self.ui.main_layout.count()):
+            item = self.ui.main_layout.itemAt(i)
+            if item and item.layout() == self.ui.layout_quick_charts:
+                idx = i
+                break
+
+        if idx != -1:
+            self.ui.main_layout.insertWidget(idx + 1, self.lbl_bottom_title)
+            self.ui.main_layout.insertLayout(idx + 2, bottom_lay)
+        else:
+            self.ui.main_layout.addWidget(self.lbl_bottom_title)
+            self.ui.main_layout.addLayout(bottom_lay)
 
         self._apply_dark_style()
-        self.refresh_data()
+        QTimer.singleShot(150, self.refresh_data)
 
     def refresh_data(self):
         """Tải KPI và biểu đồ từ MySQL (hóa đơn paid, lệnh dịch vụ, web_bookings, customers)."""
+        # Cập nhật thời gian thực trên Header
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            weekdays = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+            wd = weekdays[now.weekday()]
+            dt_str = f"{wd}, {now.strftime('%d/%m/%Y')} | {now.strftime('%H:%M')}"
+            if hasattr(self, "lbl_datetime"):
+                self.lbl_datetime.setText(dt_str)
+        except Exception:
+            pass
+
         try:
             ensure_mysql_ready()
             d = fetch_dashboard_snapshot()
@@ -370,6 +428,10 @@ class DashboardWidget(QWidget):
                     self.tbl_recent_orders.setItem(row_idx, 1, item_name)
                     self.tbl_recent_orders.setItem(row_idx, 2, item_plate)
                     self.tbl_recent_orders.setItem(row_idx, 3, item_status)
+                    
+                    # Đưa huy hiệu trạng thái dạng Pill Badge vào ô
+                    badge = self._create_status_badge(st_vi, st)
+                    self.tbl_recent_orders.setCellWidget(row_idx, 3, badge)
         except Exception as e:
             print(f"Error loading recent orders for dashboard: {e}")
 
@@ -500,7 +562,25 @@ class DashboardWidget(QWidget):
         b = QPushButton(text)
         b.setMinimumHeight(45)
         b.setMinimumWidth(200)
-        b.setProperty("brandColor", brand_color)
+        b.setCursor(Qt.PointingHandCursor)
+        # Nền tối xám viền mỏng kèm dải màu accent bên trái
+        b.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #111625;
+                color: #e2e8f0;
+                border: 1px solid #1e293b;
+                border-left: 4px solid {brand_color};
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 9px 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {brand_color};
+                color: #ffffff;
+                border: 1px solid {brand_color};
+            }}
+        """)
         return b
 
     def _make_quick_bar_card(self):
@@ -641,6 +721,55 @@ class DashboardWidget(QWidget):
         lay.addWidget(self.tbl_low_stock)
         return card
 
+    def _create_status_badge(self, status_text, status_code):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(6, 2, 6, 2)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        lbl = QLabel(status_text)
+        lbl.setFont(QFont("Segoe UI", 9, QFont.Bold))
+        lbl.setAlignment(Qt.AlignCenter)
+        
+        # Mặc định (Xám)
+        bg = "rgba(100, 116, 139, 0.15)"
+        fg = "#94a3b8"
+        border = "1px solid rgba(100, 116, 139, 0.3)"
+        
+        sc = status_code.upper()
+        if sc in ["CHECKED_IN", "APPROVED", "QUOTED"]:
+            # Xanh Cyan/Lam mờ
+            bg = "rgba(14, 165, 233, 0.15)"
+            fg = "#38bdf8"
+            border = "1px solid rgba(14, 165, 233, 0.3)"
+        elif sc in ["IN_SERVICE", "WAITING_PARTS", "NEW_WEB"]:
+            # Vàng/Cam mờ
+            bg = "rgba(245, 158, 11, 0.15)"
+            fg = "#fbbf24"
+            border = "1px solid rgba(245, 158, 11, 0.3)"
+        elif sc in ["DONE", "INVOICED", "PAID"]:
+            # Xanh lá mờ
+            bg = "rgba(16, 185, 129, 0.15)"
+            fg = "#34d399"
+            border = "1px solid rgba(16, 185, 129, 0.3)"
+        elif sc in ["CANCELLED"]:
+            # Đỏ mờ
+            bg = "rgba(239, 68, 68, 0.15)"
+            fg = "#f87171"
+            border = "1px solid rgba(239, 68, 68, 0.3)"
+            
+        lbl.setStyleSheet(f"""
+            QLabel {{
+                background-color: {bg};
+                color: {fg};
+                border: {border};
+                border-radius: 10px;
+                padding: 2px 10px;
+            }}
+        """)
+        layout.addWidget(lbl)
+        return container
+
     def _apply_dark_style(self):
         self.setStyleSheet("""
             QScrollArea, QScrollArea > QWidget {
@@ -652,20 +781,35 @@ class DashboardWidget(QWidget):
                 color: #e2e8f0;
                 font-family: "Segoe UI", "Inter";
             }
-            QLabel#dashboardTitle {
+            #dashboardHeaderCard {
+                background-color: #111625;
+                border: 1px solid #1e293b;
+                border-radius: 16px;
+            }
+            QLabel#dashboardWelcomeTitle {
                 color: #f8fafc;
-                font-size: 30px;
+                font-size: 24px;
                 font-weight: 800;
+            }
+            QLabel#dashboardWelcomeSub {
+                color: #94a3b8;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QLabel#dashboardDateTime {
+                color: #0ea5e9;
+                font-size: 14px;
+                font-weight: 700;
             }
             QLabel#dashboardSubTitle {
                 color: #0ea5e9;
                 font-size: 16px;
                 font-weight: 700;
             }
-            QFrame#quickChartCard {
-                background-color: #121824;
-                border: 1px solid #222e44;
-                border-radius: 12px;
+            #quickChartCard {
+                background-color: #111625;
+                border: 1px solid #1e293b;
+                border-radius: 16px;
             }
             QLabel#quickChartTitle {
                 color: #0ea5e9;
@@ -682,23 +826,23 @@ class DashboardWidget(QWidget):
                 font-size: 11px;
                 margin-top: 6px;
             }
-            QFrame#cardFrame {
-                background-color: #121824;
-                border: 1px solid #222e44;
-                border-radius: 12px;
+            #cardFrame {
+                background-color: #111625;
+                border: 1px solid #1e293b;
+                border-radius: 16px;
             }
-            QFrame#cardFrame QLabel#cardTitle {
+            #cardFrame QLabel#cardTitle {
                 color: #cbd5e1;
                 font-size: 11px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
             }
-            QFrame#cardFrame QLabel#cardValue {
+            #cardFrame QLabel#cardValue {
                 color: #f8fafc;
                 font-size: 28px;
                 font-weight: 800;
             }
-            QFrame#cardFrame QLabel#cardSub {
+            #cardFrame QLabel#cardSub {
                 color: #94a3b8;
                 font-size: 12px;
                 font-weight: 500;

@@ -72,7 +72,7 @@ class WebBookingsWidget(QWidget):
     pending_count_changed = pyqtSignal(int)
     # Phát signal khi nhân viên tiếp nhận đơn → truyền data sang CRM
     booking_accepted = pyqtSignal(dict)
-    refresh_data_ready = pyqtSignal(object, object)
+    refresh_data_ready = pyqtSignal(object, object, object, object)
 
     def __init__(self, crm_widget=None, current_role="Quản lý", current_user="system", parent=None):
         super().__init__(parent)
@@ -469,6 +469,12 @@ class WebBookingsWidget(QWidget):
         else:
             self._timer.stop()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._render_pending()
+        self._render_all()
+        self._update_stats()
+
     def request_refresh(self):
         if self._refresh_in_progress:
             self._refresh_queued = True
@@ -478,15 +484,86 @@ class WebBookingsWidget(QWidget):
         worker.start()
 
     def _refresh_worker(self):
-        pending = _http_get(f"{API_BASE}/bookings/pending")
-        all_bk = _http_get(f"{API_BASE}/bookings/all")
-        self.refresh_data_ready.emit(pending, all_bk)
+        pending = _http_get(f"{API_BASE}/bookings/pending") or []
+        all_bk = _http_get(f"{API_BASE}/bookings/all") or []
+
+        tech_map = {}
+        service_price_map = {}
+        try:
+            from database.connection import ensure_mysql_ready
+            ensure_mysql_ready()
+            tech_map = get_web_booking_technician_map() or {}
+        except Exception:
+            pass
+
+        try:
+            from database.connection import ensure_mysql_ready
+            ensure_mysql_ready()
+            from database.models import get_service_price_map
+            service_price_map = get_service_price_map(active_only=True) or {}
+        except Exception:
+            pass
+
+        def norm_text(text):
+            raw = str(text or "").strip().lower()
+            if not raw:
+                return ""
+            raw = unicodedata.normalize("NFD", raw)
+            raw = "".join(ch for ch in raw if unicodedata.category(ch) != "Mn")
+            raw = raw.replace("đ", "d")
+            raw = re.sub(r"[^a-z0-9]+", " ", raw)
+            return re.sub(r"\s+", " ", raw).strip()
+
+        tech_by_id = tech_map.get("by_booking_id", {}) or {}
+        tech_by_phone = tech_map.get("by_phone", {}) or {}
+
+        def process_list(lst):
+            for b in lst:
+                status_str = str(b.get("status", "pending")).strip().lower()
+                if status_str == "pending":
+                    b["_processed_tech"] = "Chờ tiếp nhận"
+                else:
+                    booking_id = str(b.get("id", "")).strip()
+                    phone = str(b.get("sdt", "")).strip()
+                    by_id = tech_by_id.get(booking_id, "")
+                    if by_id:
+                        b["_processed_tech"] = by_id
+                    else:
+                        by_phone = tech_by_phone.get(phone, "")
+                        b["_processed_tech"] = by_phone if by_phone else "Chưa phân công"
+
+                raw_amount = b.get("tong_gia")
+                if raw_amount in (None, ""):
+                    raw_amount = b.get("total_amount")
+                if raw_amount in (None, ""):
+                    raw_amount = b.get("gia_du_kien")
+                amount = None
+                try:
+                    if raw_amount not in (None, ""):
+                        amount = int(float(str(raw_amount).replace(",", "").strip()))
+                except Exception:
+                    amount = None
+                if amount is None:
+                    formula = str(b.get("dich_vu", "")).strip()
+                    resolved = _resolve_service_names(_split_services_formula(formula))
+                    amount = 0
+                    for svc in resolved:
+                        amount += int(service_price_map.get(svc, 0))
+                if amount <= 0:
+                    b["_processed_cost"] = "Chưa báo giá"
+                else:
+                    b["_processed_cost"] = f"{amount:,.0f} VNĐ"
+
+        process_list(pending)
+        process_list(all_bk)
+
+        self.refresh_data_ready.emit(pending, all_bk, tech_map, service_price_map)
 
     def _do_refresh(self):
         # Backward compatibility for callers in main.py / action handlers.
         self.request_refresh()
 
-    def _apply_refresh_results(self, pending, all_bk):
+    def _apply_refresh_results(self, pending, all_bk, tech_map, service_price_map):
         if pending is None:
             self._api_online = False
             self.lbl_status.setText("API OFFLINE")
@@ -500,11 +577,16 @@ class WebBookingsWidget(QWidget):
 
             self._pending_data = pending or []
             self._all_data = all_bk or []
-            self._refresh_technician_map()
+            
+            # Cache the maps pre-fetched from DB
+            self._tech_map_by_booking_id = (tech_map or {}).get("by_booking_id", {}) or {}
+            self._tech_map_by_phone = (tech_map or {}).get("by_phone", {}) or {}
+            self._service_price_map = service_price_map or {}
 
-            self._render_pending()
-            self._render_all()
-            self._update_stats()
+            if self.isVisible():
+                self._render_pending()
+                self._render_all()
+                self._update_stats()
             self.pending_count_changed.emit(len(self._pending_data))
 
             if new_entries:
@@ -624,10 +706,10 @@ class WebBookingsWidget(QWidget):
                 b.get("hang_xe", ""),
                 b.get("bien_so", ""),
                 b.get("dich_vu", ""),
-                self._total_cost_for_booking(b),
+                b.get("_processed_cost", "Chưa báo giá"),
                 b.get("ngay_hen", ""),
                 b.get("gio_hen", ""),
-                self._technician_for_booking(b),
+                b.get("_processed_tech", "Chờ tiếp nhận"),
                 b.get("ghi_chu", ""),
                 b.get("created_at", ""),
             ]
@@ -668,10 +750,10 @@ class WebBookingsWidget(QWidget):
                 b.get("hang_xe", ""),
                 b.get("bien_so", ""),
                 b.get("dich_vu", ""),
-                self._total_cost_for_booking(b),
+                b.get("_processed_cost", "Chưa báo giá"),
                 b.get("ngay_hen", ""),
                 b.get("gio_hen", ""),
-                self._technician_for_booking(b),
+                b.get("_processed_tech", "Chưa phân công"),
                 b.get("ghi_chu", ""),
                 STATUS_LABEL.get(status, status),
                 b.get("created_at", ""),

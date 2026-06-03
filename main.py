@@ -431,7 +431,7 @@ class MainWindow(QMainWindow):
 
     def _ensure_dashboard(self):
         if self.dashboard_mod is None and DashboardWidget:
-            self.dashboard_mod = DashboardWidget()
+            self.dashboard_mod = DashboardWidget(auth_user=self.auth_user)
             try:
                 self.dashboard_mod.setWindowFlags(Qt.Widget)
             except Exception:
@@ -440,6 +440,7 @@ class MainWindow(QMainWindow):
                 self.dashboard_mod.go_to_pos.connect(self.show_pos)
                 self.dashboard_mod.go_to_kho.connect(self.show_kho_vattu)
                 self.dashboard_mod.go_to_cskh.connect(self.show_chamsoc_kh)
+                self.dashboard_mod.go_to_tiepnhan.connect(self.show_tiep_nhan_xe)
             except Exception:
                 pass
             self.dash_lay.addWidget(self.dashboard_mod)
@@ -622,7 +623,10 @@ class MainWindow(QMainWindow):
 
     def _ensure_tiep_nhan(self):
         if self.tiepnhan is None and TiepNhanXeWidget:
-            self.tiepnhan = TiepNhanXeWidget(current_user=self.auth_user.get("username", "system"))
+            self.tiepnhan = TiepNhanXeWidget(
+                current_user=self.auth_user.get("username", "system"),
+                current_role=self.current_role
+            )
             try:
                 self.tiepnhan.setWindowFlags(Qt.Widget)
             except Exception:
@@ -703,7 +707,7 @@ class MainWindow(QMainWindow):
             self._ensure_deferred("dashboard_mod", self._ensure_dashboard)
         elif hasattr(self.dashboard_mod, "refresh_data"):
             try:
-                self.dashboard_mod.refresh_data()
+                QTimer.singleShot(250, self.dashboard_mod.refresh_data)
             except Exception:
                 pass
 
@@ -739,7 +743,10 @@ class MainWindow(QMainWindow):
             if self.tiepnhan is None:
                 self._ensure_deferred("tiepnhan", self._ensure_tiep_nhan)
             elif hasattr(self.tiepnhan, "refresh_data"):
-                self.tiepnhan.refresh_data()
+                try:
+                    QTimer.singleShot(250, self.tiepnhan.refresh_data)
+                except Exception:
+                    pass
         else:
             self.show_placeholder("Không tìm thấy module TIẾP NHẬN XE")
 
@@ -754,7 +761,7 @@ class MainWindow(QMainWindow):
                 self._ensure_deferred("crm", self._ensure_crm)
             else:
                 try:
-                    self.crm.refresh_from_database()
+                    QTimer.singleShot(250, self.crm.refresh_from_database)
                 except Exception:
                     pass
         else:
@@ -786,7 +793,7 @@ class MainWindow(QMainWindow):
                 self._ensure_deferred("kho", self._ensure_kho)
             else:
                 try:
-                    self.kho.load_data()
+                    QTimer.singleShot(250, self.kho.load_data)
                 except Exception:
                     pass
         else:
@@ -806,7 +813,7 @@ class MainWindow(QMainWindow):
                 self._ensure_deferred("svc_catalog_mod", self._ensure_svc_catalog)
             else:
                 try:
-                    self.svc_catalog_mod.reload_services_table()
+                    QTimer.singleShot(250, self.svc_catalog_mod.reload_services_table)
                 except Exception:
                     pass
         else:
@@ -882,7 +889,10 @@ class MainWindow(QMainWindow):
             if self.hoadon_mod is None:
                 self._ensure_deferred("hoadon_mod", self._ensure_hoa_don)
             elif hasattr(self.hoadon_mod, "refresh_data"):
-                self.hoadon_mod.refresh_data()
+                try:
+                    QTimer.singleShot(250, self.hoadon_mod.refresh_data)
+                except Exception:
+                    pass
         else:
             self.show_placeholder("Không tìm thấy module QUẢN LÝ HÓA ĐƠN")
 
@@ -899,7 +909,10 @@ class MainWindow(QMainWindow):
             if self.audit_mod is None:
                 self._ensure_deferred("audit_mod", self._ensure_audit)
             elif hasattr(self.audit_mod, "refresh_data"):
-                self.audit_mod.refresh_data()
+                try:
+                    QTimer.singleShot(250, self.audit_mod.refresh_data)
+                except Exception:
+                    pass
         else:
             self.show_placeholder("Không tìm thấy module NHẬT KÝ HỆ THỐNG")
 
