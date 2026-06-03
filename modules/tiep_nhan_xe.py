@@ -444,21 +444,14 @@ class TiepNhanXeWidget(QWidget):
         self._reload_technician_pool()
         current = self.cmb_technician.currentText().strip() if hasattr(self, "cmb_technician") else ""
         names = set(self.tech_pool)
-        if current:
-            names.add(current)
-        if hasattr(self, "_selected_order_id") and self._selected_order_id:
-            for o in (orders or self._orders_cache or []):
-                if str(o.get("order_no", "")) == self._selected_order_id:
-                    n = str(o.get("assigned_to", "")).strip()
-                    if n:
-                        names.add(n)
-                    break
         items = sorted(names)
         self.cmb_technician.clear()
         self.cmb_technician.addItem("")
         self.cmb_technician.addItems(items)
         if current and current in items:
             self.cmb_technician.setCurrentText(current)
+        else:
+            self.cmb_technician.setCurrentText("")
 
     def _current_shift_label(self):
         hour = datetime.now().hour
