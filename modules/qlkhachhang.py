@@ -458,33 +458,43 @@ class CustomerManagerWidget(QWidget):
         
         self.date_filter_layout = QHBoxLayout()
         self.date_filter_layout.setContentsMargins(0, 5, 0, 5)
+        self.date_filter_layout.setSpacing(8)
         
         self.cmb_date_preset = QComboBox()
         self.cmb_date_preset.addItems(["Tất cả", "Hôm qua", "7 ngày trước", "1 tháng trước", "Tùy chọn..."])
+        self.cmb_date_preset.setFixedWidth(130)
         self.cmb_date_preset.currentIndexChanged.connect(self._on_date_preset_changed)
         
         self.lbl_from = QLabel("Từ:")
+        self.lbl_from.setObjectName("lbl_from")
         self.date_from = QDateEdit()
         self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("dd/MM/yyyy")
+        self.date_from.setFixedWidth(120)
         self.date_from.setDate(QDate.currentDate().addDays(-7))
-        self.date_from.dateChanged.connect(self.refresh_history_for_selected)
+        self.date_from.dateChanged.connect(self._on_date_changed)
         
         self.lbl_to = QLabel("Đến:")
+        self.lbl_to.setObjectName("lbl_to")
         self.date_to = QDateEdit()
         self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("dd/MM/yyyy")
+        self.date_to.setFixedWidth(120)
         self.date_to.setDate(QDate.currentDate())
-        self.date_to.dateChanged.connect(self.refresh_history_for_selected)
+        self.date_to.dateChanged.connect(self._on_date_changed)
         
         self.date_filter_layout.addWidget(self.cmb_date_preset)
         self.date_filter_layout.addWidget(self.lbl_from)
         self.date_filter_layout.addWidget(self.date_from)
         self.date_filter_layout.addWidget(self.lbl_to)
         self.date_filter_layout.addWidget(self.date_to)
+        self.date_filter_layout.addStretch(1) # Đẩy bộ lọc về bên trái để giao diện gọn gàng hơn
         
         # Chèn layout này vào verticalLayout_2 (sau label_3 và trước tbl_history)
         self.ui.verticalLayout_2.insertLayout(2, self.date_filter_layout)
         
         # Trạng thái ban đầu của bộ lọc
+        self._updating_date_presets = False
         self._on_date_preset_changed()
 
     def _apply_dark_style(self):
@@ -516,6 +526,12 @@ class CustomerManagerWidget(QWidget):
             }
             QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QTextEdit:focus {
                 border: 1px solid #f97316;
+            }
+            QLabel#lbl_from, QLabel#lbl_to {
+                color: #94a3b8;
+                font-weight: bold;
+                font-size: 13px;
+                margin-left: 5px;
             }
             QDateEdit::drop-down {
                 border: none;
@@ -1089,39 +1105,30 @@ class CustomerManagerWidget(QWidget):
         preset = self.cmb_date_preset.currentText()
         today = QDate.currentDate()
         
-        if preset == "Tất cả":
-            self.lbl_from.setEnabled(False)
-            self.date_from.setEnabled(False)
-            self.lbl_to.setEnabled(False)
-            self.date_to.setEnabled(False)
-        elif preset == "Hôm qua":
+        self._updating_date_presets = True
+        
+        if preset == "Hôm qua":
             yesterday = today.addDays(-1)
             self.date_from.setDate(yesterday)
             self.date_to.setDate(yesterday)
-            self.lbl_from.setEnabled(False)
-            self.date_from.setEnabled(False)
-            self.lbl_to.setEnabled(False)
-            self.date_to.setEnabled(False)
         elif preset == "7 ngày trước":
             self.date_from.setDate(today.addDays(-7))
             self.date_to.setDate(today)
-            self.lbl_from.setEnabled(False)
-            self.date_from.setEnabled(False)
-            self.lbl_to.setEnabled(False)
-            self.date_to.setEnabled(False)
         elif preset == "1 tháng trước":
             self.date_from.setDate(today.addMonths(-1))
             self.date_to.setDate(today)
-            self.lbl_from.setEnabled(False)
-            self.date_from.setEnabled(False)
-            self.lbl_to.setEnabled(False)
-            self.date_to.setEnabled(False)
-        elif preset == "Tùy chọn...":
-            self.lbl_from.setEnabled(True)
-            self.date_from.setEnabled(True)
-            self.lbl_to.setEnabled(True)
-            self.date_to.setEnabled(True)
             
+        self._updating_date_presets = False
+        self.refresh_history_for_selected()
+
+    def _on_date_changed(self):
+        if getattr(self, "_updating_date_presets", False):
+            return
+        
+        # Khi người dùng tự tay thay đổi ngày, chuyển combo về "Tùy chọn..."
+        self.cmb_date_preset.blockSignals(True)
+        self.cmb_date_preset.setCurrentText("Tùy chọn...")
+        self.cmb_date_preset.blockSignals(False)
         self.refresh_history_for_selected()
 
     def refresh_history_for_selected(self):
